@@ -1,7 +1,7 @@
 # JavaScript to Mermaid Flowchart Generator
 
 ## Overview
-This application is designed to convert JavaScript, HTML, and CSS code into interactive flowcharts using Mermaid.js. It provides a visual representation of the code's structure and flow, leveraging OpenAI's GPT-4 for code analysis and Mermaid syntax generation. The tool is especially useful for developers and educators aiming to visually debug or understand their code.
+This app is designed to convert JavaScript, HTML, and CSS code into interactive flowcharts using Mermaid.js.It is  useful for developers and educators aiming to visually debug or understand their code.
 
 ## Project Structure
 
