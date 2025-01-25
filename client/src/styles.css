@@ -1,0 +1,227 @@
+.app {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.input-section {
+  width: 50%;
+  height: 100%;
+  padding: 20px;
+  overflow-y: auto;
+  border-right: 1px solid #ccc;
+}
+
+.right-section {
+  width: 50%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.flowchart-section {
+  height: 60%;
+  padding: 20px;
+  border-bottom: 1px solid #ccc;
+}
+
+.preview-section {
+  height: 40%;
+  padding: 20px;
+}
+
+.editors-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.CodeMirror {
+  height: 200px !important;
+  border: 1px solid #ccc;
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+#preview-frame {
+  width: 100%;
+  height: calc(100% - 40px);
+  border: 1px solid #ccc;
+}
+
+#chart-container {
+  width: 100%;
+  height: calc(100% - 40px);
+  overflow: auto;
+}
+
+.node-buttons {
+  display: flex;
+  flex-direction: column;
+}
+
+.node-button {
+  margin-bottom: 10px;
+  padding: 10px;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  width: 200px;
+  min-height: 40px;
+  height: auto;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+.code-section {
+  width: 60%;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-container {
+  margin-bottom: 20px;
+}
+
+.action-section {
+  width: 40%;
+  padding-left: 20px;
+}
+
+.highlighted-line {
+  background-color: rgba(255, 255, 0, 0.2);
+}
+
+.chart-container {
+  width: 100%;
+  min-height: 400px;
+  margin-top: 20px;
+  border: 1px solid #ccc;
+  padding: 20px;
+  overflow: auto;
+}
+
+.chart-section {
+    padding: 20px;
+    margin-top: 20px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#chart-container {
+    min-height: 400px;
+    overflow: auto;
+}
+
+/* Override jOrgChart styles */
+.jOrgChart .node {
+    background-color: #fff;
+    border: 2px solid #3498db;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.jOrgChart .node:hover {
+    background-color: #3498db;
+    color: #fff;
+}
+
+.jOrgChart .line {
+    background-color: #3498db;
+}
+.node-clicked {
+  background-color: rgba(0, 123, 255, 0.2) !important;
+  transition: background-color 0.2s;
+}
+
+.mermaid {
+  background: #fff;
+  position: relative;
+  z-index: 1000;
+}
+
+.mermaid .node {
+  z-index: 1001 ;
+}
+
+.mermaid .edgePath {
+  z-index: 999;
+}
+
+#chart-container {
+  position: relative;
+  z-index: 900;
+}
+
+.mermaid .node rect, 
+.mermaid .node circle, 
+.mermaid .node ellipse, 
+.mermaid .node polygon {
+  fill: #fff;
+  stroke: #999;
+}
+
+.mermaid .node .label {
+  color: #000;
+  fill: #000;
+  z-index: 100001 ;
+}
+
+.mermaid .edgePath .path {
+  stroke: #999;
+}
+
+/* Mermaid specific styles */
+.mermaid svg {
+  background: transparent !important;
+}
+
+.mermaid .node rect, 
+.mermaid .node circle, 
+.mermaid .node ellipse, 
+.mermaid .node polygon, 
+.mermaid .node path {
+  fill: transparent !important;
+  stroke: #666 !important;
+}
+
+.mermaid .label {
+  color: #000 !important;
+  fill: #000 !important;
+  z-index: 100001 !important;
+}
+
+.mermaid .node .label {
+  font-weight: normal !important;
+  z-index: 100001 !important;
+}
+
+.mermaid .edgePath .path {
+  stroke: #666 !important;
+}
+
+.mermaid .edgeLabel {
+  background-color: transparent !important;
+}
+
+.mermaid .cluster rect {
+  fill: transparent !important;
+  stroke: #666 !important;
+}

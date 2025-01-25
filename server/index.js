@@ -1,0 +1,472 @@
+const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const axios = require('axios');
+require('dotenv').config();  
+const OpenAI = require('openai');
+
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+});
+
+const app = express();
+
+ 
+app.use(cors()); //   CORS for cross-origin requests
+app.use(bodyParser.json());  
+
+ 
+function mergePartialUpdate(original, update) {
+  if (!update || update === original) return original;
+
+  const originalLines = original.split('\n');
+  const updateLines = update.split('\n');
+
+  
+  let startIndex = -1;
+  let endIndex = -1;
+
+  for (let i = 0; i < originalLines.length; i++) {
+    if (originalLines[i].trim() === updateLines[0].trim()) {
+      startIndex = i;
+      endIndex = i + updateLines.length;
+      break;
+    }
+  }
+
+  // If we couldn't find the exact match, fall back 
+  if (startIndex === -1) {
+    for (let i = 0; i < originalLines.length; i++) {
+      if (originalLines[i].includes(updateLines[0].trim())) {
+        startIndex = i;
+        endIndex = i + updateLines.length;
+        break;
+      }
+    }
+  }
+
+  // If we still couldn't find a match, return the original code
+  if (startIndex === -1) {
+    console.warn("Couldn't find the update location in the original code. Returning original code.");
+    return original;
+  }
+
+  // Merge the update into the original
+  return [
+    ...originalLines.slice(0, startIndex),
+    ...updateLines,
+    ...originalLines.slice(endIndex)
+  ].join('\n');
+}
+app.post('/generate-flowchart', async (req, res) => {
+  const { code, htmlCode, cssCode, longestSection } = req.body;
+
+  if (!code || !htmlCode || !cssCode || !longestSection) {
+      console.error("All code sections and longest section must be provided.");
+      return res.status(400).send('All code sections and longest section must be provided.');
+  }
+
+  try {
+      console.log("Received code:", code);
+      console.log("Received HTML:", htmlCode);
+      console.log("Received CSS:", cssCode);
+      console.log("Longest section:", longestSection);
+
+      const prompt = `Create a flowchart in Mermaid syntax that includes the structure of the following code :
+
+      JavaScript:
+      ${code}
+ 
+This is the sample output:  graph LR
+    Root[Structure of Code]
+
+    Root --> A[1.Three.js Setup #6-38]
+    Root --> B[2.Create Dot Geometry #46-80]
+    Root --> C[3.Animate Dot Geometry #82-121]
+    Root --> D[4.Handle Window Resize #125-133]
+
+    A --> E[Set size #10]
+    A --> F[Create a scene #13-14]
+    A --> G[Setup Camera #16-26]
+    G --> H[Position Camera #17-26]
+    A --> I[Add 3D Object Container #29-30]
+    A --> J[Add a texture loader #37-38]
+
+    B --> K[Setup vectors #53-69]
+    B --> L[Setup material properties #70-80]
+
+    %% Add Clicks
+    click A callback "Click for lines 6-38"
+    click B callback "Click for lines 46-80"
+    click C callback "Click for lines 82-121"
+    click D callback "Click for lines 125-133"
+    click E callback "Click for lines 10"
+    click F callback "Click for lines 13-14"
+    click G callback "Click for lines 16-26"
+    click H callback "Click for lines 17-26"
+    click I callback "Click for lines 29-30"
+    click J callback "Click for lines 37-38"
+    click K callback "Click for lines 53-69"
+    click L callback "Click for lines 70-80"
+
+    %% Styles
+    style Root fill:#e5e5e5
+    style A fill:#c6b5ff
+    style B fill:#c6b5ff
+    style C fill:#c6b5ff
+    style D fill:#c6b5ff
+    style E fill:#ffd966
+    style F fill:#ffd966
+    style G fill:#ffd966
+    style H fill:#97d077
+    style I fill:#ffd966
+    style J fill:#ffd966
+    style K fill:#ffd966
+    style L fill:#ffd966
+
+     This is another sample output:
+     graph LR
+    Root[Structure of Code]
+
+    Root --> A[1.Initialize Anime Timeline #2-5]
+    Root --> B[2.Define Letters and Word LILI #8-15]
+    Root --> C[3.Get LILI and Background Circles #18-23]
+    Root --> D[4.Add Animations to LILI Circles #26-33]
+    Root --> E[5.Add Animations to Background Circles #36-42]
+    Root --> F[6.Change Background Color of LILI Circles #45-48]
+
+    A --> G[Set Easing, Direction, and Loop #2-5]
+    B --> H[Define L and I #9-10]
+    B --> I[Define LILI #13-15]
+    C --> J[Get LILI Circles #18-19]
+    C --> K[Get Background Circles #22-23]
+    D --> L[Set Targets, Styles, and Properties #26-33]
+    E --> M[Set Targets, Styles, and Properties #36-42]
+    F --> N[Set Targets, Styles, and Properties #45-48]
+
+    %% Add Clicks
+    click A callback "Click for lines 2-5"
+    click B callback "Click for lines 8-15"
+    click C callback "Click for lines 18-23"
+    click D callback "Click for lines 26-33"
+    click E callback "Click for lines 36-42"
+    click F callback "Click for lines 45-48"
+    click G callback "Click for lines 2-5"
+    click H callback "Click for lines 9-10"
+    click I callback "Click for lines 13-15"
+    click J callback "Click for lines 18-19"
+    click K callback "Click for lines 22-23"
+    click L callback "Click for lines 26-33"
+    click M callback "Click for lines 36-42"
+    click N callback "Click for lines 45-48"
+
+    %% Styles
+    style Root fill:#e5e5e5
+    style A fill:#c6b5ff
+    style B fill:#c6b5ff
+    style C fill:#c6b5ff
+    style D fill:#c6b5ff
+    style E fill:#c6b5ff
+    style F fill:#c6b5ff
+    style G fill:#ffd966
+    style H fill:#ffd966
+    style I fill:#ffd966
+    style J fill:#ffd966
+    style K fill:#ffd966
+    style L fill:#ffd966
+    style M fill:#ffd966
+    style N fill:#ffd966
+
+
+      Only output the raw Mermaid code.
+      DO NOT OUTPUT ANY EXTRA STUFF INCLUDING NOT OUTPUTTING any extra punctuations！！！！！
+      `;
+
+      const completion = await openai.chat.completions.create({
+          model: "gpt-4",
+          messages: [
+              {
+                  role: "system",
+                  content: "You are a helpful assistant that generates Mermaid flowchart syntax based on code analysis."
+              },
+              {
+                  role: "user",
+                  content: prompt
+              }
+          ],
+          temperature: 0.7,
+      });
+
+      const mermaidCode = completion.choices[0].message.content;
+      console.log(mermaidCode);
+      res.json({ mermaid: mermaidCode });
+
+  } catch (error) {
+      console.error("Error generating flowchart:", error);
+      res.status(500).send('Error generating flowchart');
+  }
+});
+// POST endpoint to handle the JavaScript code input
+app.post('/generate-flowchart-de', async (req, res) => {
+    const { code, htmlCode, cssCode, longestSection } = req.body;
+
+    if (!code || !htmlCode || !cssCode || !longestSection) {
+        console.error("All code sections and longest section must be provided.");
+        return res.status(400).send('All code sections and longest section must be provided.');
+    }
+
+    try {
+        console.log("Received code:", code);
+        console.log("Received HTML:", htmlCode);
+        console.log("Received CSS:", cssCode);
+        console.log("Longest section:", longestSection);
+
+        // Set the default Mermaid syntax
+        const defaultMermaidSyntax =`
+        graph LR
+    Root[Structure of Code]
+
+    Root --> A[1.Three.js Setup #6-38]
+    Root --> B[2.Create Dot Geometry #46-80]
+    Root --> C[3.Animate Dot Geometry #82-121]
+    Root --> D[4.Handle Window Resize #125-133]
+
+    A --> E[Set size #10]
+    A --> F[Create a scene #13-14]
+    A --> G[Setup Camera #16-26]
+    G --> H[Position Camera #17-26]
+    A --> I[Add 3D Object Container #29-30]
+    A --> J[Add a texture loader #37-38]
+
+    B --> K[Setup vectors #53-69]
+    B --> L[Setup material properties #70-80]
+
+    %% Add Clicks
+    click A callback "Click for lines 6-38"
+    click B callback "Click for lines 46-80"
+    click C callback "Click for lines 82-121"
+    click D callback "Click for lines 125-133"
+    click E callback "Click for lines 10"
+    click F callback "Click for lines 13-14"
+    click G callback "Click for lines 16-26"
+    click H callback "Click for lines 17-26"
+    click I callback "Click for lines 29-30"
+    click J callback "Click for lines 37-38"
+    click K callback "Click for lines 53-69"
+    click L callback "Click for lines 70-80"
+
+    %% Styles
+    style Root fill:#e5e5e5
+    style A fill:#c6b5ff
+    style B fill:#c6b5ff
+    style C fill:#c6b5ff
+    style D fill:#c6b5ff
+    style E fill:#ffd966
+    style F fill:#ffd966
+    style G fill:#ffd966
+    style H fill:#97d077
+    style I fill:#ffd966
+    style J fill:#ffd966
+    style K fill:#ffd966
+    style L fill:#ffd966
+
+`;/*graph TD
+A[Start #1-10] --> B[Process]
+B --> C[End]
+click A callback "Click for lines 1-10"
+click B callback "Click for lines 11-20"
+click C callback "Click for lines 21-30"`;graph LR
+        U[Flowchart] --> A[1.Three.JS Setup]
+        U --> B[2.Create Dot Geometry]
+        U --> K[3.Animate Dot Geometry]
+        U --> L[4.Handle Window Resize]
+    
+        A --> C[Set size]
+        A --> D[Create a scene]
+        A --> E[Setup Camera]
+        E --> F[Position Camera]
+        A --> G[Add 3D Object Container]
+        A --> H[Add a texture loader]
+        
+        B --> I[Setup vectors]
+        B --> J[Setup material properties]`
+        
+        flowchart TD
+    A[Setup Window & Renderer #1-11] --> B[Scene Configuration #13-14]
+    B --> C[Camera Setup & Animation #16-26]
+    C --> D[Container & Rotation #29-35]
+    D --> E[Initialize Parameters #37-44]
+    E --> F[Create Geometry System #46-80]
+    F --> G[Animation Parameters #82-93]
+    G --> H[Render Loop #94-121]
+    H -->|Loop| H
+    H --> I[Window Resize Handler #125-133]
+    
+    subgraph Geometry System
+    F1[Create Plane #49-60] --> F2[Generate Dots #62-79]
+    end
+    
+    subgraph Animation Loop
+    H1[Update Dots #98-105] --> H2[Update Plane #106-113]
+    H2 --> H3[Render Frame #114-120]
+    end`;
+        
+        const defaultMermaidSyntax = `flowchart TD
+  A["1. Initialize Renderer (#1-11)"] --> B["2. Create Scene and Set Fog (#12-14)"]
+  B --> C["3. Setup Camera with Perspective View (#15-26)"]
+  C --> D["4. Animate Camera using TweenMax (#19-26)"]
+  D --> E["5. Create Container Object for Dots and Plane (#29-30)"]
+  E --> F["6. Rotate Container using TweenMax (#32-35)"]
+  F --> G["7. Setup Texture Loader (#37-38)"]
+  G --> H["8. Define Options and Center Coordinates (#40-44)"]
+  H --> I["9. Create Dots Function (#46-80)"]
+  I --> I1["10. Initialize Plane Geometry (#49-56)"]
+  I1 --> I2["11. Apply Transformation and Calculate Ratios (#50-56)"]
+  I2 --> I3["12. Create Plane Material and Add to Container (#58-60)"]
+  I3 --> I4["13. Generate Dot Geometry with Loop (#62-79)"]
+  I4 --> I5["14. Set Dot Material and Texture (#70-77)"]
+  I5 --> I6["15. Add Dots to Container (#78-79)"]
+  I6 --> J["16. Animate Ease Properties with TweenMax (#82-93)"]
+  J --> K["17. Render Function: Calculate Vertex Transformations (#94-120)"]
+  K --> K1["18. Update Dot and Plane Geometry (#115-116)"]
+  K1 --> L["19. Camera Adjustments and LookAt Function (#118-119)"]
+  L --> M["20. Render Scene with Camera (#120)"]
+  M --> N["21. Invoke CreateDots and Start Animation (#122-123)"]
+  N --> O["22. Handle Window Resize Event (#125-133)"]
+`;
+*/
+
+        console.log("Generated Mermaid syntax:", defaultMermaidSyntax);
+        res.json({ mermaid: defaultMermaidSyntax });
+    } catch (error) {
+        console.error('Error occurred:', error.message);
+        res.status(500).send('Error generating flowchart.');
+    }
+});
+
+// POST endpoint to handle the LLM chat
+app.post('/llm-chat', async (req, res) => {
+  console.log('Received request to /llm-chat');
+  try {
+    const { llmInput, code, htmlCode, cssCode } = req.body;
+    console.log('Request body:', { llmInput, code, htmlCode, cssCode });
+
+    if (!llmInput || !code || !htmlCode || !cssCode) {
+      console.log('Missing required input fields');
+      return res.status(400).json({ error: 'Missing required input fields' });
+    }
+
+    console.log('Sending request to OpenAI API');
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4',
+        messages: [
+          { role: 'system', content: 'You are a helpful assistant that can modify code based on user requests. Respond with a valid JSON object containing modified code sections.' },
+          { role: 'user', content: `Given the following code:
+
+JavaScript:
+${code}
+
+HTML:
+${htmlCode}
+
+CSS:
+${cssCode}
+
+User request: ${llmInput}
+
+Please modify the appropriate code to fulfill the user's request. Return ONLY a valid JSON object with keys 'js', 'html', and 'css'. Each key should contain an object with 'original' and 'modified' properties. 
+
+If a section needs modification, include ONLY the changed function section in the 'modified' property.
+If a section doesn't need modification, set both 'original' and 'modified' to null.
+
+Example response format:
+
+{
+  "js": {
+    "original": null,
+    "modified": "// Only the modified function section of JavaScript code"
+  },
+  "html": {
+    "original": null,
+    "modified": "<!-- Only the modified part of HTML code -->"
+  },
+  "css": {
+    "original": null,
+    "modified": null
+  }
+}
+
+Do not include any explanations or additional text outside of the JSON object.` }
+        ]
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+        }
+      }
+    );
+
+    console.log('Received response from OpenAI API');
+    if (response.data.choices && response.data.choices.length > 0) {
+      const content = response.data.choices[0].message.content;
+      try {
+        // Parse the content as JSON
+        const updatedCode = JSON.parse(content);
+        
+        // Merge partial updates
+        const mergedCode = {
+          js: mergePartialUpdate(code, updatedCode.js.modified),
+          html: mergePartialUpdate(htmlCode, updatedCode.html.modified),
+          css: mergePartialUpdate(cssCode, updatedCode.css.modified)
+        };
+        
+        res.json({ updatedCode: mergedCode });
+      } catch (parseError) {
+        console.error("Error parsing OpenAI response:", parseError);
+        console.log("Raw response content:", content);
+        
+        // Attempt to extract JSON from the content
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const extractedJson = JSON.parse(jsonMatch[0]);
+            res.json({ updatedCode: extractedJson });
+          } catch (extractError) {
+            console.error("Error extracting JSON from content:", extractError);
+            res.status(500).json({ 
+              error: 'Error parsing OpenAI response', 
+              details: content,
+              rawContent: content 
+            });
+          }
+        } else {
+          res.status(500).json({ 
+            error: 'Error parsing OpenAI response', 
+            details: 'No valid JSON found in the response',
+            rawContent: content 
+          });
+        }
+      }
+    } else {
+      console.error("Unexpected response format from OpenAI API:", response.data);
+      res.status(500).json({ error: 'Unexpected response format from OpenAI API' });
+    }
+  } catch (error) {
+    console.error('Error in /llm-chat:', error);
+    if (error.response) {
+      console.error('OpenAI API response:', error.response.data);
+      res.status(error.response.status).json({ error: 'Error processing LLM chat request', details: error.response.data });
+    } else {
+      res.status(500).json({ error: 'Error processing LLM chat request', details: error.message });
+    }
+  }
+});
+
+// Start the server
+const PORT = 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JS to Flowchart</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/material-darker.min.css">
+  <link rel="stylesheet" href="/vendor/jquery.jOrgChart.css"/>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10.9.2/dist/mermaid.esm.min.mjs';
+    const config = {
+        startOnLoad: false,
+        securityLevel: 'loose',
+        theme: 'base',
+        themeVariables: {
+            nodeBkg: 'transparent',
+            mainBkg: 'transparent',
+            nodeTextColor: '#000'
+        },
+        flowchart: {
+            htmlLabels: true,
+            curve: 'basis',
+            nodeSpacing: 100,
+            rankSpacing: 100,
+            useMaxWidth: false
+        }
+    };
+    mermaid.initialize(config);
+    
+    // Expose mermaid globally
+    window.mermaid = mermaid;
+    
+    window.initMermaid = async () => {
+        try {
+            await window.mermaid.init();
+        } catch (error) {
+            console.error('Mermaid initialization error:', error);
+        }
+    };
+  </script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"></script>
+  <script src="/vendor/jquery.jOrgChart.js"></script>
+</body>
+</html>
