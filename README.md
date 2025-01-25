@@ -132,3 +132,9 @@ js-to-mermaid-app/
 - **Express**: v4.21.0
 - **OpenAI API**: v4.73.0
 - **Mermaid**: v11.2.1
+- 
+
+NOTES:
+
+you cannot click the generate flowchart twice before the flowchart is generated. Otherwise, there will be syntax error in mermaid.
+
