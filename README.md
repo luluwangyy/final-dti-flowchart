@@ -49,7 +49,7 @@ js-to-mermaid-app/
    ```
    npm install
    ```
-3. Create a `.env` file and add your OpenAI API key:
+3. Create a `.env` file in the server folder and add your OpenAI API key:
    ```
    OPENAI_API_KEY=your_api_key_here
    ```
@@ -72,19 +72,6 @@ js-to-mermaid-app/
    npm start
    ```
 
-## It Works
-### Code Input Process
-1. **User Interface**: The application provides three editors for JavaScript, HTML, and CSS code input using CodeMirror.
-2. **Code Submission**: Users can submit their code by clicking the "Generate Flowchart" button, which sends the code to the backend for processing.
-
-### Flowchart Generation
-1. **Backend Processing**: The server receives the code and uses OpenAI's GPT-4 to generate Mermaid syntax.
-2. **Mermaid Syntax**: The generated syntax is sent back to the frontend, where it is rendered into a flowchart using Mermaid.js.
-
-### Interactive Features
-- **Code Preview**: The application provides a live preview of the HTML/CSS/JS implementation in an iframe.
-- **Flowchart Interaction**: Users can interact with the flowchart nodes to view related code sections.
-- **LLM Chat**: Users can request code modifications through natural language, which are processed by GPT-4.
 
 ##Code Walkthrough
 ### Frontend Core (App.js)
@@ -141,24 +128,6 @@ js-to-mermaid-app/
     // Merge logic for code updates
   }
   ```
-
-
-Troubleshooting
----------------
-### Common Issues
-1. **OpenAI API Connection**:
-   - Ensure the API key is correctly set in the `.env` file.
-   - Verify network connectivity and API rate limits.
-
-2. **Mermaid Rendering**:
-   - Check for syntax errors in the generated Mermaid code.
-   - Monitor the browser console for rendering errors.
-
-3. **Code Preview**:
-   - Ensure the iframe is correctly configured to display content.
-   - Verify that all resources are loading without errors.
-
-##Technical Notes
 - **React**: v18.3.1
 - **Express**: v4.21.0
 - **OpenAI API**: v4.73.0
