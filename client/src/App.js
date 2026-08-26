@@ -9,7 +9,7 @@ import 'codemirror/mode/htmlmixed/htmlmixed';
 import 'codemirror/mode/css/css';
 import './styles.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5050';
 
 const EMPTY_SOURCE = {
   javascript: '',
@@ -20,6 +20,8 @@ const EMPTY_SOURCE = {
 const EXAMPLES = [
   {
     name: 'Particle field',
+    category: 'Canvas animation',
+    description: 'A visual loop with setup, particles, motion, and resize handling.',
     source: {
       javascript: [
         "const canvas = document.querySelector('#field');",
@@ -88,6 +90,8 @@ const EXAMPLES = [
   },
   {
     name: 'Focus list',
+    category: 'DOM interactions',
+    description: 'A compact task filter that shows events, state, and conditional UI.',
     source: {
       javascript: [
         "const filters = document.querySelectorAll('[data-filter]');",
@@ -135,6 +139,116 @@ const EXAMPLES = [
         'small { color: #8a8a8f; }'
       ].join('\n')
     }
+  },
+  {
+    name: 'Theme switcher',
+    category: 'UI state',
+    description: 'A small theme controller using data attributes and local preferences.',
+    source: {
+      javascript: [
+        "const themeButtons = document.querySelectorAll('[data-theme]');",
+        "const preview = document.querySelector('.theme-preview');",
+        '',
+        'function applyTheme(theme) {',
+        '  preview.dataset.activeTheme = theme;',
+        '  themeButtons.forEach((button) => {',
+        "    const isActive = button.dataset.theme === theme;",
+        "    button.setAttribute('aria-pressed', isActive);",
+        '  });',
+        '}',
+        '',
+        'themeButtons.forEach((button) => {',
+        "  button.addEventListener('click', () => {",
+        '    applyTheme(button.dataset.theme);',
+        '  });',
+        '});',
+        '',
+        "applyTheme('light');"
+      ].join('\n'),
+      html: [
+        '<main class="theme-preview">',
+        '  <p>Appearance</p>',
+        '  <h1>Choose a calm workspace.</h1>',
+        '  <div class="themes">',
+        '    <button data-theme="light">Light</button>',
+        '    <button data-theme="warm">Warm</button>',
+        '    <button data-theme="dark">Dark</button>',
+        '  </div>',
+        '</main>'
+      ].join('\n'),
+      css: [
+        'body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: sans-serif; background: #efefed; }',
+        '.theme-preview { width: min(420px, 84vw); padding: 36px; border-radius: 24px; background: #fff; color: #1d1d1f; transition: .25s ease; }',
+        '.theme-preview[data-active-theme="warm"] { background: #f3e8d8; color: #3e3024; }',
+        '.theme-preview[data-active-theme="dark"] { background: #252628; color: #f5f5f2; }',
+        'p { opacity: .56; text-transform: uppercase; letter-spacing: .12em; font-size: 11px; }',
+        'h1 { max-width: 320px; letter-spacing: -.04em; }',
+        '.themes { display: flex; gap: 8px; margin-top: 28px; }',
+        'button { padding: 10px 14px; border: 0; border-radius: 10px; }',
+        'button[aria-pressed="true"] { color: white; background: #146ed8; }'
+      ].join('\n')
+    }
+  },
+  {
+    name: 'Form validation',
+    category: 'Input logic',
+    description: 'A friendly signup form with validation, errors, and a success state.',
+    source: {
+      javascript: [
+        "const form = document.querySelector('#signup');",
+        "const emailInput = document.querySelector('#email');",
+        "const message = document.querySelector('#message');",
+        '',
+        'function validateEmail(email) {',
+        "  return email.includes('@') && email.includes('.');",
+        '}',
+        '',
+        "form.addEventListener('submit', (event) => {",
+        '  event.preventDefault();',
+        '  const email = emailInput.value.trim();',
+        '',
+        '  if (!email) {',
+        "    message.textContent = 'Enter your email to continue.';",
+        "    message.dataset.state = 'error';",
+        '    return;',
+        '  }',
+        '',
+        '  if (!validateEmail(email)) {',
+        "    message.textContent = 'That email does not look complete.';",
+        "    message.dataset.state = 'error';",
+        '    return;',
+        '  }',
+        '',
+        "  message.textContent = 'You are on the list.';",
+        "  message.dataset.state = 'success';",
+        '  form.reset();',
+        '});'
+      ].join('\n'),
+      html: [
+        '<main class="signup-card">',
+        '  <p>Early access</p>',
+        '  <h1>Get the next field note.</h1>',
+        '  <form id="signup">',
+        '    <label for="email">Email address</label>',
+        '    <div><input id="email" type="email" placeholder="you@example.com"><button>Join</button></div>',
+        '    <small id="message" aria-live="polite"></small>',
+        '  </form>',
+        '</main>'
+      ].join('\n'),
+      css: [
+        'body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #e9edf3; font-family: sans-serif; color: #1d1d1f; }',
+        '.signup-card { width: min(460px, 86vw); padding: 38px; border-radius: 24px; background: rgba(255,255,255,.82); box-shadow: 0 30px 70px rgba(32,44,62,.12); }',
+        'p, label, small { color: #707077; font-size: 12px; }',
+        'h1 { margin: 10px 0 30px; letter-spacing: -.04em; }',
+        'label { display: block; margin-bottom: 8px; }',
+        'form div { display: flex; gap: 8px; }',
+        'input { flex: 1; padding: 13px; border: 1px solid #ddd; border-radius: 11px; }',
+        'button { padding: 0 18px; color: white; border: 0; border-radius: 11px; background: #146ed8; }',
+        'small { display: block; min-height: 18px; margin-top: 10px; }',
+        'small[data-state="error"] { color: #b64f49; }',
+        'small[data-state="success"] { color: #388157; }'
+      ].join('\n')
+    }
   }
 ];
 
@@ -146,8 +260,8 @@ const FILES = [
 
 const STATUS = {
   idle: {
-    label: 'Ready to map',
-    detail: 'Add JavaScript or begin with an example.',
+    label: 'Preview comes first',
+    detail: 'Load an example or add your own code, then run the live preview.',
     tone: 'neutral'
   },
   generating: {
@@ -177,11 +291,19 @@ function cleanMermaidSyntax(value = '') {
 function App() {
   const [source, setSource] = useState(EMPTY_SOURCE);
   const [activeFile, setActiveFile] = useState('javascript');
-  const [outputView, setOutputView] = useState('flowchart');
+  const [outputView, setOutputView] = useState('preview');
+  const [selectedExample, setSelectedExample] = useState(0);
   const [mermaidCode, setMermaidCode] = useState('');
   const [previewDocument, setPreviewDocument] = useState('');
+  const [hasPreviewed, setHasPreviewed] = useState(false);
   const [generationState, setGenerationState] = useState('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isConnectOpen, setIsConnectOpen] = useState(false);
+  const [connectionMode, setConnectionMode] = useState('demo');
+  const [credentialInput, setCredentialInput] = useState('');
+  const [connectionState, setConnectionState] = useState('disconnected');
+  const [connectionMessage, setConnectionMessage] = useState('');
+  const [aiAccess, setAiAccess] = useState(null);
 
   const editorRef = useRef(null);
   const diagramRef = useRef(null);
@@ -193,7 +315,22 @@ function App() {
     [activeValue]
   );
   const hasSource = Object.values(source).some((value) => value.trim());
-  const currentStatus = STATUS[generationState];
+  const currentStatus = generationState !== 'idle'
+    ? STATUS[generationState]
+    : !hasPreviewed
+      ? STATUS.idle
+      : !aiAccess
+        ? {
+            label: 'Preview ready',
+            detail: 'Connect AI with demo access or a personal key to generate the flowchart.',
+            tone: 'success'
+          }
+        : {
+            label: 'Ready to map',
+            detail: 'The preview is checked and AI access is connected.',
+            tone: 'success'
+          };
+  const example = EXAMPLES[selectedExample];
 
   useEffect(() => {
     mermaid.initialize({
@@ -219,6 +356,17 @@ function App() {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (!isConnectOpen) return undefined;
+
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setIsConnectOpen(false);
+    };
+
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [isConnectOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -249,6 +397,7 @@ function App() {
 
   const updateActiveFile = (value) => {
     setSource((current) => ({ ...current, [activeFile]: value }));
+    setHasPreviewed(false);
     if (generationState === 'error') {
       setGenerationState('idle');
       setErrorMessage('');
@@ -257,10 +406,12 @@ function App() {
 
   const loadExample = (index) => {
     setSource(EXAMPLES[index].source);
+    setSelectedExample(index);
     setActiveFile('javascript');
     setMermaidCode('');
     setPreviewDocument('');
-    setOutputView('flowchart');
+    setOutputView('preview');
+    setHasPreviewed(false);
     setGenerationState('idle');
     setErrorMessage('');
   };
@@ -270,6 +421,8 @@ function App() {
     setActiveFile('javascript');
     setMermaidCode('');
     setPreviewDocument('');
+    setOutputView('preview');
+    setHasPreviewed(false);
     setGenerationState('idle');
     setErrorMessage('');
   };
@@ -293,6 +446,9 @@ function App() {
 
     setPreviewDocument(document);
     setOutputView('preview');
+    setHasPreviewed(true);
+    setGenerationState('idle');
+    setErrorMessage('');
   };
 
   const handleSubmit = async () => {
@@ -303,17 +459,36 @@ function App() {
       return;
     }
 
+    if (!hasPreviewed) {
+      setOutputView('preview');
+      setGenerationState('error');
+      setErrorMessage('Run the live preview first so you can check the code before mapping it.');
+      return;
+    }
+
+    if (!aiAccess) {
+      setIsConnectOpen(true);
+      return;
+    }
+
     setGenerationState('generating');
     setErrorMessage('');
     setOutputView('flowchart');
 
     try {
-      const response = await axios.post(API_URL + '/generate-flowchart', {
-        code: source.javascript,
-        htmlCode: source.html || '<!-- No HTML provided -->',
-        cssCode: source.css || '/* No CSS provided */',
-        longestSection: 'JavaScript'
-      });
+      const headers = aiAccess.mode === 'personal'
+        ? { 'X-OpenAI-Api-Key': aiAccess.secret }
+        : { 'X-Demo-Password': aiAccess.secret };
+      const response = await axios.post(
+        API_URL + '/generate-flowchart',
+        {
+          code: source.javascript,
+          htmlCode: source.html || '<!-- No HTML provided -->',
+          cssCode: source.css || '/* No CSS provided */',
+          longestSection: 'JavaScript'
+        },
+        { headers }
+      );
 
       const diagram = cleanMermaidSyntax(response.data.mermaid);
       if (!diagram) throw new Error('The service returned an empty diagram.');
@@ -329,6 +504,50 @@ function App() {
         'Flow could not reach the AI service. Check the server connection and try again.'
       );
     }
+  };
+
+  const handleConnect = async (event) => {
+    event.preventDefault();
+    const secret = credentialInput.trim();
+
+    if (!secret) {
+      setConnectionState('error');
+      setConnectionMessage(
+        connectionMode === 'demo'
+          ? 'Enter the demo password.'
+          : 'Enter an OpenAI API key.'
+      );
+      return;
+    }
+
+    setConnectionState('connecting');
+    setConnectionMessage('');
+
+    const headers = connectionMode === 'personal'
+      ? { 'X-OpenAI-Api-Key': secret }
+      : { 'X-Demo-Password': secret };
+
+    try {
+      await axios.post(API_URL + '/session/connect', {}, { headers });
+      setAiAccess({ mode: connectionMode, secret });
+      setConnectionState('connected');
+      setConnectionMessage('');
+      setCredentialInput('');
+      setIsConnectOpen(false);
+    } catch (error) {
+      const responseMessage =
+        error.response && error.response.data && error.response.data.error;
+      setConnectionState('error');
+      setConnectionMessage(
+        responseMessage || 'Flow could not reach the AI service. The server may still be offline.'
+      );
+    }
+  };
+
+  const disconnectAI = () => {
+    setAiAccess(null);
+    setConnectionState('disconnected');
+    setConnectionMessage('');
   };
 
   const handleDiagramClick = (event) => {
@@ -373,10 +592,14 @@ function App() {
         </div>
 
         <div className="topbar-actions">
-          <span className="service-status">
+          <button
+            className={'connect-button' + (aiAccess ? ' is-connected' : '')}
+            type="button"
+            onClick={() => setIsConnectOpen(true)}
+          >
             <i aria-hidden="true" />
-            AI flow mapper
-          </span>
+            {aiAccess ? 'AI connected' : 'Connect AI'}
+          </button>
           <button className="button button-tertiary" type="button" onClick={clearWorkspace}>
             New workspace
           </button>
@@ -392,17 +615,33 @@ function App() {
               <p>Turn implementation details into a clear, navigable map.</p>
             </div>
 
-            <div className="example-actions" aria-label="Load example">
-              {EXAMPLES.map((example, index) => (
+            <div className="example-library" aria-label="Example code library">
+              <div className="example-library-heading">
+                <span>Example library</span>
+                <small>Ready-made code you can load and edit</small>
+              </div>
+              <div className="example-picker">
+                <label className="sr-only" htmlFor="example-select">Choose example code</label>
+                <select
+                  id="example-select"
+                  value={selectedExample}
+                  onChange={(event) => setSelectedExample(Number(event.target.value))}
+                >
+                  {EXAMPLES.map((item, index) => (
+                    <option key={item.name} value={index}>
+                      {item.name} — {item.category}
+                    </option>
+                  ))}
+                </select>
                 <button
                   className="button button-soft"
-                  key={example.name}
                   type="button"
-                  onClick={() => loadExample(index)}
+                  onClick={() => loadExample(selectedExample)}
                 >
-                  {example.name}
+                  Load example
                 </button>
-              ))}
+              </div>
+              <p>{example.description}</p>
             </div>
           </header>
 
@@ -440,14 +679,19 @@ function App() {
           </div>
 
           <footer className="editor-footer">
-            <span>{lineCount} {lineCount === 1 ? 'line' : 'lines'} · {activeMeta.label}</span>
+            <span>
+              <strong>Step 1</strong>
+              Check your code in the live preview
+              <small>{lineCount} {lineCount === 1 ? 'line' : 'lines'} · {activeMeta.label}</small>
+            </span>
             <button
-              className="button button-secondary"
+              className="button button-preview"
               type="button"
               onClick={handlePreview}
               disabled={!hasSource}
             >
-              Run preview
+              <strong aria-hidden="true">▶</strong>
+              Run live preview
               <span aria-hidden="true">↗</span>
             </button>
           </footer>
@@ -459,6 +703,7 @@ function App() {
               <button
                 className={outputView === 'flowchart' ? 'is-active' : ''}
                 type="button"
+                disabled={!hasPreviewed && !mermaidCode}
                 onClick={() => setOutputView('flowchart')}
               >
                 Flowchart
@@ -473,18 +718,23 @@ function App() {
             </div>
 
             <button
-              className="button button-primary"
+              className="button button-flowchart"
               type="button"
               onClick={handleSubmit}
-              disabled={generationState === 'generating' || !hasSource}
+              disabled={generationState === 'generating' || !hasSource || !hasPreviewed}
             >
+              <span className="step-number" aria-hidden="true">2</span>
               <span
                 className={generationState === 'generating' ? 'spark is-thinking' : 'spark'}
                 aria-hidden="true"
               >
                 ✦
               </span>
-              {generationState === 'generating' ? 'Mapping…' : 'Generate flowchart'}
+              {generationState === 'generating'
+                ? 'Mapping…'
+                : aiAccess
+                  ? 'Generate flowchart'
+                  : 'Connect AI to map'}
             </button>
           </header>
 
@@ -499,7 +749,11 @@ function App() {
                       <span />
                     </div>
                     <h2>Your code, made visible.</h2>
-                    <p>Load an example or add JavaScript, then let Flow trace the structure for you.</p>
+                    <p>
+                      {hasPreviewed
+                        ? 'Your preview is checked. Connect AI, then generate the full flowchart.'
+                        : 'Run the live preview first. Flowchart generation unlocks after you check the code.'}
+                    </p>
                     {!hasSource && (
                       <button className="button button-soft" type="button" onClick={() => loadExample(0)}>
                         Try an example
@@ -537,15 +791,17 @@ function App() {
               ) : (
                 <div className="empty-state compact">
                   <span className="preview-symbol" aria-hidden="true">↗</span>
-                  <h2>Preview your interface.</h2>
-                  <p>Run the current HTML, CSS, and JavaScript in an isolated canvas.</p>
+                  <span className="empty-step">Step 1 · Preview first</span>
+                  <h2>Check what your code makes.</h2>
+                  <p>Run the current HTML, CSS, and JavaScript in an isolated canvas before asking AI to map it.</p>
                   <button
-                    className="button button-soft"
+                    className="button button-preview"
                     type="button"
                     onClick={handlePreview}
                     disabled={!hasSource}
                   >
-                    Run preview
+                    <strong aria-hidden="true">▶</strong>
+                    Run live preview
                   </button>
                 </div>
               )
@@ -566,6 +822,134 @@ function App() {
           </footer>
         </section>
       </main>
+
+      {isConnectOpen && (
+        <div className="modal-backdrop">
+          <section
+            className="connect-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="connect-title"
+          >
+            <header className="connect-modal-header">
+              <div>
+                <span className="eyebrow">AI access</span>
+                <h2 id="connect-title">Connect AI</h2>
+                <p>Choose how you want to unlock flowchart generation.</p>
+              </div>
+              <button
+                className="modal-close"
+                type="button"
+                aria-label="Close AI connection"
+                onClick={() => setIsConnectOpen(false)}
+              >
+                ×
+              </button>
+            </header>
+
+            {aiAccess ? (
+              <div className="connected-card">
+                <span className="connected-mark" aria-hidden="true">✓</span>
+                <div>
+                  <strong>AI is connected</strong>
+                  <p>
+                    {aiAccess.mode === 'demo'
+                      ? 'Using limited demo access for this session.'
+                      : 'Using your personal key for this browser session only.'}
+                  </p>
+                </div>
+                <button
+                  className="button button-soft"
+                  type="button"
+                  onClick={() => {
+                    disconnectAI();
+                    setIsConnectOpen(false);
+                  }}
+                >
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleConnect}>
+                <div className="connection-switcher" aria-label="AI connection method">
+                  <button
+                    className={connectionMode === 'demo' ? 'is-active' : ''}
+                    type="button"
+                    onClick={() => {
+                      setConnectionMode('demo');
+                      setCredentialInput('');
+                      setConnectionState('disconnected');
+                      setConnectionMessage('');
+                    }}
+                  >
+                    Demo access
+                  </button>
+                  <button
+                    className={connectionMode === 'personal' ? 'is-active' : ''}
+                    type="button"
+                    onClick={() => {
+                      setConnectionMode('personal');
+                      setCredentialInput('');
+                      setConnectionState('disconnected');
+                      setConnectionMessage('');
+                    }}
+                  >
+                    Personal API key
+                  </button>
+                </div>
+
+                <div className="connection-copy">
+                  <strong>
+                    {connectionMode === 'demo' ? 'Use trial credits' : 'Use your own OpenAI access'}
+                  </strong>
+                  <p>
+                    {connectionMode === 'demo'
+                      ? 'Enter the password shared by the creator. Trial access uses the app key securely on the server.'
+                      : 'Your key is sent to the Flow server for requests in this session and is never saved to browser storage.'}
+                  </p>
+                </div>
+
+                <label className="credential-field" htmlFor="ai-credential">
+                  <span>{connectionMode === 'demo' ? 'Demo password' : 'OpenAI API key'}</span>
+                  <input
+                    id="ai-credential"
+                    type="password"
+                    autoComplete="off"
+                    value={credentialInput}
+                    placeholder={connectionMode === 'demo' ? 'Enter demo password' : 'sk-…'}
+                    onChange={(event) => {
+                      setCredentialInput(event.target.value);
+                      if (connectionState === 'error') {
+                        setConnectionState('disconnected');
+                        setConnectionMessage('');
+                      }
+                    }}
+                  />
+                </label>
+
+                {connectionMessage && (
+                  <p className="connection-error" role="alert">{connectionMessage}</p>
+                )}
+
+                <div className="connection-note">
+                  <span aria-hidden="true">⌁</span>
+                  <p>
+                    The creator key is never included in the website. Personal keys are held in memory only and clear when the page reloads.
+                  </p>
+                </div>
+
+                <button
+                  className="button button-primary connect-submit"
+                  type="submit"
+                  disabled={connectionState === 'connecting'}
+                >
+                  {connectionState === 'connecting' ? 'Connecting…' : 'Continue securely'}
+                </button>
+              </form>
+            )}
+          </section>
+        </div>
+      )}
     </div>
   );
 }

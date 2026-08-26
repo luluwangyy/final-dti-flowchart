@@ -2,18 +2,94 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const axios = require('axios');
+const crypto = require('crypto');
 require('dotenv').config();  
 const OpenAI = require('openai');
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
+const app = express();
+const PORT = Number(process.env.PORT || 5050);
+const HOST = process.env.HOST || '127.0.0.1';
+const DEMO_TRIAL_LIMIT = Number(process.env.DEMO_TRIAL_LIMIT || 5);
+const allowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:3000')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const demoUsage = new Map();
+
+app.set('trust proxy', 1);
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Origin not allowed by Flow.'));
+  },
+  allowedHeaders: ['Content-Type', 'X-OpenAI-Api-Key', 'X-Demo-Password']
+}));
+app.use(bodyParser.json({ limit: '1mb' }));
+
+function safeCompare(left, right) {
+  const leftBuffer = Buffer.from(String(left || ''));
+  const rightBuffer = Buffer.from(String(right || ''));
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function getDemoUsage(req) {
+  const day = new Date().toISOString().slice(0, 10);
+  const key = `${req.ip || 'local'}:${day}`;
+  const used = demoUsage.get(key) || 0;
+  return { key, used, remaining: Math.max(DEMO_TRIAL_LIMIT - used, 0) };
+}
+
+function resolveAccess(req) {
+  const personalKey = req.get('X-OpenAI-Api-Key');
+  if (personalKey) {
+    if (personalKey.trim().length < 20) {
+      return { error: 'That API key looks incomplete.', status: 400 };
+    }
+    return { apiKey: personalKey.trim(), mode: 'personal' };
+  }
+
+  const suppliedDemoPassword = req.get('X-Demo-Password');
+  if (!suppliedDemoPassword) {
+    return { error: 'Connect AI before generating a flowchart.', status: 401 };
+  }
+
+  if (!process.env.DEMO_PASSWORD || !process.env.OPENAI_API_KEY) {
+    return {
+      error: 'Demo access is not configured yet. The creator can enable it after adding the server key.',
+      status: 503
+    };
+  }
+
+  if (!safeCompare(suppliedDemoPassword, process.env.DEMO_PASSWORD)) {
+    return { error: 'That demo password is not valid.', status: 401 };
+  }
+
+  const usage = getDemoUsage(req);
+  if (usage.remaining <= 0) {
+    return { error: 'This device has used today’s demo trials. Try again tomorrow.', status: 429 };
+  }
+
+  return {
+    apiKey: process.env.OPENAI_API_KEY,
+    mode: 'demo',
+    usage
+  };
+}
+
+app.get('/health', (req, res) => {
+  res.json({ ok: true, demoConfigured: Boolean(process.env.DEMO_PASSWORD && process.env.OPENAI_API_KEY) });
 });
 
-const app = express();
+app.post('/session/connect', (req, res) => {
+  const access = resolveAccess(req);
+  if (access.error) return res.status(access.status).json({ error: access.error });
 
- 
-app.use(cors()); //   CORS for cross-origin requests
-app.use(bodyParser.json());  
+  return res.json({
+    connected: true,
+    mode: access.mode,
+    remaining: access.mode === 'demo' ? access.usage.remaining : null
+  });
+});
 
  
 function mergePartialUpdate(original, update) {
@@ -60,17 +136,19 @@ function mergePartialUpdate(original, update) {
 }
 app.post('/generate-flowchart', async (req, res) => {
   const { code, htmlCode, cssCode, longestSection } = req.body;
+  const access = resolveAccess(req);
+
+  if (access.error) {
+      return res.status(access.status).json({ error: access.error });
+  }
 
   if (!code || !htmlCode || !cssCode || !longestSection) {
       console.error("All code sections and longest section must be provided.");
-      return res.status(400).send('All code sections and longest section must be provided.');
+      return res.status(400).json({ error: 'All code sections and longest section must be provided.' });
   }
 
   try {
-      console.log("Received code:", code);
-      console.log("Received HTML:", htmlCode);
-      console.log("Received CSS:", cssCode);
-      console.log("Longest section:", longestSection);
+      const openai = new OpenAI({ apiKey: access.apiKey });
 
       const prompt = `Create a flowchart in Mermaid syntax that includes the structure of the following code :
 
@@ -198,12 +276,18 @@ This is the sample output:  graph LR
       });
 
       const mermaidCode = completion.choices[0].message.content;
-      console.log(mermaidCode);
+      if (access.mode === 'demo') {
+          demoUsage.set(access.usage.key, access.usage.used + 1);
+      }
       res.json({ mermaid: mermaidCode });
 
   } catch (error) {
-      console.error("Error generating flowchart:", error);
-      res.status(500).send('Error generating flowchart');
+      const status = error.status || 500;
+      const message = status === 401
+          ? 'The OpenAI API key was rejected.'
+          : 'Flow could not generate the chart. Please try again.';
+      console.error("Error generating flowchart:", error.message);
+      res.status(status).json({ error: message });
   }
 });
 // POST endpoint to handle the JavaScript code input
@@ -466,7 +550,6 @@ Do not include any explanations or additional text outside of the JSON object.` 
 });
 
 // Start the server
-const PORT = 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Server running on http://${HOST}:${PORT}`);
 });
