@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import mermaid from 'mermaid';
-import { UnControlled as CodeMirror } from 'react-codemirror2';
+import { Controlled as CodeMirror } from 'react-codemirror2';
 import 'codemirror/lib/codemirror.css';
 import 'codemirror/theme/material-darker.css';
 import 'codemirror/mode/javascript/javascript';
@@ -9,702 +9,565 @@ import 'codemirror/mode/htmlmixed/htmlmixed';
 import 'codemirror/mode/css/css';
 import './styles.css';
 
-const App = () => {
-  const [code, setCode] = useState('');
-  const [htmlCode, setHtmlCode] = useState('');
-  const [cssCode, setCssCode] = useState('');
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
+const EMPTY_SOURCE = {
+  javascript: '',
+  html: '',
+  css: ''
+};
+
+const EXAMPLES = [
+  {
+    name: 'Particle field',
+    source: {
+      javascript: [
+        "const canvas = document.querySelector('#field');",
+        "const context = canvas.getContext('2d');",
+        'const particles = [];',
+        '',
+        'function resizeCanvas() {',
+        '  canvas.width = window.innerWidth;',
+        '  canvas.height = window.innerHeight;',
+        '}',
+        '',
+        'function createParticles(count = 80) {',
+        '  for (let index = 0; index < count; index += 1) {',
+        '    particles.push({',
+        '      x: Math.random() * canvas.width,',
+        '      y: Math.random() * canvas.height,',
+        '      radius: Math.random() * 3 + 1,',
+        '      speed: Math.random() * 0.6 + 0.2',
+        '    });',
+        '  }',
+        '}',
+        '',
+        'function renderFrame() {',
+        "  context.fillStyle = '#f2f2ef';",
+        '  context.fillRect(0, 0, canvas.width, canvas.height);',
+        "  context.fillStyle = '#1d1d1f';",
+        '',
+        '  particles.forEach((particle) => {',
+        '    particle.y -= particle.speed;',
+        '    if (particle.y < -4) particle.y = canvas.height + 4;',
+        '    context.beginPath();',
+        '    context.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);',
+        '    context.fill();',
+        '  });',
+        '',
+        '  requestAnimationFrame(renderFrame);',
+        '}',
+        '',
+        "window.addEventListener('resize', resizeCanvas);",
+        'resizeCanvas();',
+        'createParticles();',
+        'renderFrame();'
+      ].join('\n'),
+      html: [
+        '<main class="demo-shell">',
+        '  <p>Generative study 01</p>',
+        '  <h1>A quiet field in motion.</h1>',
+        '  <canvas id="field"></canvas>',
+        '</main>'
+      ].join('\n'),
+      css: [
+        '* { box-sizing: border-box; }',
+        'body {',
+        '  margin: 0;',
+        '  overflow: hidden;',
+        '  font-family: -apple-system, BlinkMacSystemFont, sans-serif;',
+        '  background: #f2f2ef;',
+        '  color: #1d1d1f;',
+        '}',
+        '.demo-shell { padding: 48px; }',
+        'p { color: #777; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }',
+        'h1 { position: relative; z-index: 1; max-width: 420px; font-size: 48px; letter-spacing: -.05em; }',
+        'canvas { position: fixed; inset: 0; }'
+      ].join('\n')
+    }
+  },
+  {
+    name: 'Focus list',
+    source: {
+      javascript: [
+        "const filters = document.querySelectorAll('[data-filter]');",
+        "const tasks = document.querySelectorAll('[data-state]');",
+        '',
+        'function updateFilter(nextFilter) {',
+        '  filters.forEach((button) => {',
+        "    button.setAttribute('aria-pressed', button.dataset.filter === nextFilter);",
+        '  });',
+        '',
+        '  tasks.forEach((task) => {',
+        "    const shouldShow = nextFilter === 'all' || task.dataset.state === nextFilter;",
+        '    task.hidden = !shouldShow;',
+        '  });',
+        '}',
+        '',
+        'filters.forEach((button) => {',
+        "  button.addEventListener('click', () => updateFilter(button.dataset.filter));",
+        '});',
+        '',
+        "updateFilter('all');"
+      ].join('\n'),
+      html: [
+        '<main class="focus-list">',
+        '  <header><span>Today</span><strong>3 focused tasks</strong></header>',
+        '  <nav aria-label="Task filters">',
+        '    <button data-filter="all">All</button>',
+        '    <button data-filter="open">Open</button>',
+        '    <button data-filter="done">Done</button>',
+        '  </nav>',
+        '  <article data-state="open">Refine product story <small>09:30</small></article>',
+        '  <article data-state="open">Review interaction map <small>12:00</small></article>',
+        '  <article data-state="done">Prepare prototype <small>Done</small></article>',
+        '</main>'
+      ].join('\n'),
+      css: [
+        'body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #ececea; font-family: -apple-system, sans-serif; color: #1d1d1f; }',
+        '.focus-list { width: min(440px, 88vw); padding: 28px; border: 1px solid rgba(0,0,0,.06); border-radius: 22px; background: rgba(255,255,255,.72); box-shadow: 0 24px 60px rgba(0,0,0,.08); }',
+        'header { display: flex; justify-content: space-between; margin-bottom: 24px; color: #777; }',
+        'header strong { color: #1d1d1f; }',
+        'nav { display: flex; gap: 6px; margin-bottom: 18px; }',
+        'button { padding: 8px 12px; border: 0; border-radius: 9px; background: #eee; }',
+        'button[aria-pressed="true"] { color: white; background: #1d1d1f; }',
+        'article { display: flex; justify-content: space-between; padding: 16px 2px; border-top: 1px solid rgba(0,0,0,.07); }',
+        'small { color: #8a8a8f; }'
+      ].join('\n')
+    }
+  }
+];
+
+const FILES = [
+  { id: 'javascript', label: 'JavaScript', short: 'JS', mode: 'javascript' },
+  { id: 'html', label: 'HTML', short: 'HTML', mode: 'htmlmixed' },
+  { id: 'css', label: 'CSS', short: 'CSS', mode: 'css' }
+];
+
+const STATUS = {
+  idle: {
+    label: 'Ready to map',
+    detail: 'Add JavaScript or begin with an example.',
+    tone: 'neutral'
+  },
+  generating: {
+    label: 'Reading your code',
+    detail: 'Tracing structure, decisions, and relationships…',
+    tone: 'thinking'
+  },
+  completed: {
+    label: 'Flowchart generated',
+    detail: 'Select a diagram node to return to its source lines.',
+    tone: 'success'
+  },
+  error: {
+    label: 'Connection needed',
+    detail: 'The AI service is not connected yet. Your code is still here.',
+    tone: 'error'
+  }
+};
+
+function cleanMermaidSyntax(value = '') {
+  return value
+    .replace(/^\x60{3}(?:mermaid)?\s*/i, '')
+    .replace(/\s*\x60{3}$/, '')
+    .trim();
+}
+
+function App() {
+  const [source, setSource] = useState(EMPTY_SOURCE);
+  const [activeFile, setActiveFile] = useState('javascript');
+  const [outputView, setOutputView] = useState('flowchart');
   const [mermaidCode, setMermaidCode] = useState('');
-  const [llmInput, setLlmInput] = useState('');
-  const [nodes, setNodes] = useState([]);
-  const [connections, setConnections] = useState([]);
+  const [previewDocument, setPreviewDocument] = useState('');
+  const [generationState, setGenerationState] = useState('idle');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const jsEditorRef = useRef(null);
-  const htmlEditorRef = useRef(null);
-  const cssEditorRef = useRef(null);
+  const editorRef = useRef(null);
+  const diagramRef = useRef(null);
+  const renderId = useRef(0);
+  const activeMeta = FILES.find((file) => file.id === activeFile);
+  const activeValue = source[activeFile];
+  const lineCount = useMemo(
+    () => (activeValue ? activeValue.split('\n').length : 1),
+    [activeValue]
+  );
+  const hasSource = Object.values(source).some((value) => value.trim());
+  const currentStatus = STATUS[generationState];
 
   useEffect(() => {
-    if (mermaidCode) {
-      mermaid.initialize({ startOnLoad: true });
-      try {
-        mermaid.contentLoaded();
-      } catch (error) {
-        console.error("Error rendering Mermaid diagram:", error);
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme: 'base',
+      themeVariables: {
+        background: 'transparent',
+        primaryColor: '#ffffff',
+        primaryTextColor: '#1d1d1f',
+        primaryBorderColor: '#d5d5d2',
+        lineColor: '#8a8a8f',
+        secondaryColor: '#f1f1ef',
+        tertiaryColor: '#fafaf8',
+        fontFamily: '-apple-system, BlinkMacSystemFont, SF Pro Text, sans-serif'
+      },
+      flowchart: {
+        curve: 'basis',
+        htmlLabels: true,
+        nodeSpacing: 42,
+        rankSpacing: 62,
+        useMaxWidth: true
       }
-    }
-  }, [mermaidCode]);
-
-  useEffect(() => {
-    if (jsEditorRef.current) {
-      jsEditorRef.current.editor.on('change', () => {
-        setCode(jsEditorRef.current.editor.getValue());
-      });
-    }
+    });
   }, []);
 
-  const extractNodesAndLogic = (mermaidCode) => {
-    const lines = mermaidCode.split('\n');
-    const extractedNodes = new Map();
-    const extractedConnections = [];
-    const subgraphs = new Map();
-    let currentSubgraph = null;
+  useEffect(() => {
+    let cancelled = false;
 
-    lines.forEach((line, index) => {
-      const trimmedLine = line.trim();
-      if (trimmedLine.startsWith('subgraph')) {
-        currentSubgraph = trimmedLine.split(' ')[1];
-        subgraphs.set(currentSubgraph, []);
-      } else if (trimmedLine === 'end') {
-        currentSubgraph = null;
-      } else if (trimmedLine.includes('[') && trimmedLine.includes(']')) {
-        const nodeMatch = trimmedLine.match(/(\w+)\[([^\]]+)\]/);
-        if (nodeMatch) {
-          const [, id, label] = nodeMatch;
-          if (!extractedNodes.has(id)) {
-            const node = {
-              id,
-              label,
-              x: 0,
-              y: 0,
-              subgraph: currentSubgraph
-            };
-            extractedNodes.set(id, node);
-            if (currentSubgraph) {
-              subgraphs.get(currentSubgraph).push(id);
-            }
-          }
+    async function renderDiagram() {
+      if (!mermaidCode || !diagramRef.current) return;
+
+      try {
+        const id = 'flow-diagram-' + renderId.current;
+        renderId.current += 1;
+        const { svg } = await mermaid.render(id, mermaidCode);
+        if (!cancelled && diagramRef.current) {
+          diagramRef.current.innerHTML = svg;
         }
-      } else if (trimmedLine.includes('-->')) {
-        const connectionMatch = trimmedLine.match(/(\w+)\s*-->\s*(\w+)/);
-        if (connectionMatch) {
-          extractedConnections.push({ from: connectionMatch[1], to: connectionMatch[2] });
+      } catch (error) {
+        if (!cancelled) {
+          setGenerationState('error');
+          setErrorMessage('The returned diagram could not be rendered. Try generating it again.');
         }
       }
-    });
+    }
 
-    // Calculate positions
-    const nodeArray = Array.from(extractedNodes.values());
-    const subgraphArray = Array.from(subgraphs.entries());
-    const subgraphSpacing = 300;
-    const nodeSpacing = 150;
-
-    subgraphArray.forEach(([subgraphName, nodeIds], subgraphIndex) => {
-      const subgraphX = subgraphIndex * subgraphSpacing;
-      nodeIds.forEach((nodeId, nodeIndex) => {
-        const node = extractedNodes.get(nodeId);
-        node.x = subgraphX + (nodeIndex % 3) * nodeSpacing;
-        node.y = Math.floor(nodeIndex / 3) * nodeSpacing;
-      });
-    });
-
-    // Handle nodes not in subgraphs
-    const unassignedNodes = nodeArray.filter(node => !node.subgraph);
-    unassignedNodes.forEach((node, index) => {
-      node.x = (subgraphArray.length + 1) * subgraphSpacing + (index % 3) * nodeSpacing;
-      node.y = Math.floor(index / 3) * nodeSpacing;
-    });
-
-    setNodes(nodeArray);
-    setConnections(extractedConnections);
-
-    // Convert the extracted nodes into a tree structure
-    const buildTreeStructure = () => {
-        const tree = {
-            name: "Code Structure",
-            lineNumbers: "1-1000",
-            children: []
-        };
-
-        // Group nodes by subgraph
-        subgraphs.forEach((nodeIds, subgraphName) => {
-            const subgraphNode = {
-                name: subgraphName,
-                lineNumbers: "",
-                children: nodeIds.map(id => {
-                    const node = extractedNodes.get(id);
-                    return {
-                        name: node.label,
-                        lineNumbers: node.label.match(/#(\d+-\d+|\d+)/)?.[1] || ""
-                    };
-                })
-            };
-            tree.children.push(subgraphNode);
-        });
-
-        // Add unassigned nodes
-        const unassignedNodes = Array.from(extractedNodes.values())
-            .filter(node => !node.subgraph)
-            .map(node => ({
-                name: node.label,
-                lineNumbers: node.label.match(/#(\d+-\d+|\d+)/)?.[1] || ""
-            }));
-
-        if (unassignedNodes.length > 0) {
-            tree.children.push({
-                name: "Other",
-                lineNumbers: "",
-                children: unassignedNodes
-            });
-        }
-
-        return tree;
+    renderDiagram();
+    return () => {
+      cancelled = true;
     };
+  }, [mermaidCode]);
 
-    const treeData = buildTreeStructure();
-    return treeData;
+  const updateActiveFile = (value) => {
+    setSource((current) => ({ ...current, [activeFile]: value }));
+    if (generationState === 'error') {
+      setGenerationState('idle');
+      setErrorMessage('');
+    }
   };
 
-  const handleSubmit = async () => {
-    try {
-        console.log("Submit button clicked.");
-        
-        if (!code || !htmlCode || !cssCode) {
-            console.error("All code sections must be provided.");
-            return;
-        }
+  const loadExample = (index) => {
+    setSource(EXAMPLES[index].source);
+    setActiveFile('javascript');
+    setMermaidCode('');
+    setPreviewDocument('');
+    setOutputView('flowchart');
+    setGenerationState('idle');
+    setErrorMessage('');
+  };
 
-        // Calculate longest section
-        const codeSections = [
-            { type: 'JavaScript', content: code },
-            { type: 'HTML', content: htmlCode },
-            { type: 'CSS', content: cssCode }
-        ];
-         // Always use JavaScript section regardless of length
-        const longestSection = codeSections.find(section => section.type === 'JavaScript');
-        //const longestSection = codeSections.reduce((longest, current) => 
-         //   current.content.length > longest.content.length ? current : longest
-        //);
-        longestSection.type = 'JavaScript';
-
-        const response = await axios.post('http://localhost:5000/generate-flowchart', { 
-            code, 
-            htmlCode, 
-            cssCode,
-            longestSection: 'JavaScript'
-        });
-
-        setMermaidCode(response.data.mermaid);
-        const treeData = extractNodesAndLogic(response.data.mermaid);
-        
-        const container = document.getElementById('chart-container');
-        if (!container) {
-            console.error('Chart container not found');
-            return;
-        }
-
-        // Define the mermaid diagram
-        const mermaidDiagram = response.data.mermaid;
-        container.innerHTML = `<div class="mermaid">${mermaidDiagram}</div>`;
-
-        // Initialize mermaid
-        mermaid.initialize({ 
-            startOnLoad: true,
-            securityLevel: 'loose', // Allows clicks
-            flowchart: {
-                htmlLabels: true
-            }
-        });
-
-        // Render the diagram
-        try {
-            const { svg } = await mermaid.render('graphDiv', mermaidDiagram);
-            container.innerHTML = svg;
-
-            // Add click handlers after rendering
-            setTimeout(() => {
-                const nodes = container.querySelectorAll('.node');
-                nodes.forEach(node => {
-                    node.style.cursor = 'pointer';
-                    node.addEventListener('click', (e) => {
-                        const labelElement = node.querySelector('.label');
-                        if (labelElement) {
-                            handleNodeClick({ label: labelElement.textContent });
-                        }
-                    });
-                });
-            }, 100);
-        } catch (renderError) {
-            console.error('Mermaid render error:', renderError);
-        }
-    } catch (error) {
-        console.error('Error generating flowchart:', error);
-    }
+  const clearWorkspace = () => {
+    setSource(EMPTY_SOURCE);
+    setActiveFile('javascript');
+    setMermaidCode('');
+    setPreviewDocument('');
+    setGenerationState('idle');
+    setErrorMessage('');
   };
 
   const handlePreview = () => {
-    const previewFrame = document.getElementById('preview-frame');
-    if (!previewFrame) {
-      console.error('Preview frame not found');
+    const safeScript = source.javascript.replace(/<\/script/gi, '<\\/script');
+    const document = [
+      '<!doctype html>',
+      '<html lang="en">',
+      '<head>',
+      '<meta charset="utf-8">',
+      '<meta name="viewport" content="width=device-width, initial-scale=1">',
+      '<style>' + source.css + '</style>',
+      '</head>',
+      '<body>',
+      source.html || '<main style="font-family: sans-serif; padding: 32px;">Add HTML to preview your interface.</main>',
+      '<script>' + safeScript + '</script>',
+      '</body>',
+      '</html>'
+    ].join('');
+
+    setPreviewDocument(document);
+    setOutputView('preview');
+  };
+
+  const handleSubmit = async () => {
+    if (!source.javascript.trim()) {
+      setActiveFile('javascript');
+      setGenerationState('error');
+      setErrorMessage('Add JavaScript before generating a flowchart.');
       return;
     }
-    const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-    doc.open();
-    doc.write(`
-      <html>
-        <head>
-          <style>${cssCode}</style>
-        </head>
-        <body>
-          ${htmlCode}
-          <script>${code}</script>
-        </body>
-      </html>
-    `);
-    doc.close();
-  };
-/*
-  const handleLLMChat = async () => {
+
+    setGenerationState('generating');
+    setErrorMessage('');
+    setOutputView('flowchart');
+
     try {
-      console.log('Sending request to server:', { llmInput, code, htmlCode, cssCode });
-      const response = await axios.post('http://localhost:5000/llm-chat', {
-        llmInput,
-        code,
-        htmlCode,
-        cssCode
+      const response = await axios.post(API_URL + '/generate-flowchart', {
+        code: source.javascript,
+        htmlCode: source.html || '<!-- No HTML provided -->',
+        cssCode: source.css || '/* No CSS provided */',
+        longestSection: 'JavaScript'
       });
-      
-      console.log('Received response from server:', response.data);
-  
-      if (response.data.updatedCode) {
-        console.log('Updated code:', response.data.updatedCode);
-        setCode(response.data.updatedCode.js || code);
-        setHtmlCode(response.data.updatedCode.html || htmlCode);
-        setCssCode(response.data.updatedCode.css || cssCode);
-      }
+
+      const diagram = cleanMermaidSyntax(response.data.mermaid);
+      if (!diagram) throw new Error('The service returned an empty diagram.');
+
+      setMermaidCode(diagram);
+      setGenerationState('completed');
     } catch (error) {
-      console.error('Error communicating with LLM:', error);
+      const responseMessage =
+        error.response && error.response.data && error.response.data.error;
+      setGenerationState('error');
+      setErrorMessage(
+        responseMessage ||
+        'Flow could not reach the AI service. Check the server connection and try again.'
+      );
     }
   };
 
-  const renderInteractiveFlowchart = () => {
-    return (
-      <div className="interactive-flowchart">
-        <svg className="connections" width="100%" height="100%">
-          {connections.map((connection, index) => {
-            const fromNode = nodes.find(node => node.id === connection.from);
-            const toNode = nodes.find(node => node.id === connection.to);
-            if (fromNode && toNode) {
-              return (
-                <line
-                  key={index}
-                  x1={fromNode.x + 100}
-                  y1={fromNode.y + 20}
-                  x2={toNode.x + 100}
-                  y2={toNode.y + 20}
-                  stroke="black"
-                  strokeWidth="2"
-                />
-              );
-            }
-            return null;
-          })}
-        </svg>
-        <div className="node-buttons">
-          {nodes.map(node => (
-            <button
-              key={node.id}
-              className="node-button"
-              onClick={() => handleNodeClick(node)}
-              style={{
-                position: 'absolute',
-                left: `${node.x}px`,
-                top: `${node.y}px`,
-              }}
-            >
-              {node.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
-*/
-  const handleNodeClick = (node) => {
-    // Clear any existing highlights
-    if (jsEditorRef.current) {
-      const doc = jsEditorRef.current.editor.getDoc();
-      const marks = doc.getAllMarks();
-      marks.forEach(mark => mark.clear());
-    }
+  const handleDiagramClick = (event) => {
+    const node = event.target.closest('.node');
+    const text = node && node.textContent;
+    const match = text && text.match(/#(\d+)(?:-(\d+))?/);
+    if (!match) return;
 
-    // Assuming node.label contains the line numbers for JavaScript
-    const lineNumbers = node.label.match(/#(\d+-\d+|\d+)/)?.[1];
-    if (lineNumbers && jsEditorRef.current) {
-      const [start, end] = lineNumbers.split('-').map(num => parseInt(num) - 1);
-      const doc = jsEditorRef.current.editor.getDoc();
-      
-      // Highlight the specified lines in JavaScript editor only
-      doc.markText(
-        { line: start, ch: 0 },
-        { line: end, ch: doc.getLine(end).length },
+    const start = Math.max(Number(match[1]) - 1, 0);
+    const end = Math.max(Number(match[2] || match[1]) - 1, start);
+    setActiveFile('javascript');
+
+    window.setTimeout(() => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      const document = editor.getDoc();
+      const lastLine = Math.max(document.lineCount() - 1, 0);
+      const safeStart = Math.min(start, lastLine);
+      const safeEnd = Math.min(end, lastLine);
+
+      document.getAllMarks().forEach((mark) => mark.clear());
+      document.markText(
+        { line: safeStart, ch: 0 },
+        { line: safeEnd, ch: document.getLine(safeEnd).length },
         { className: 'highlighted-line' }
       );
-      
-      // Scroll to the highlighted section
-      jsEditorRef.current.editor.scrollIntoView({ line: start, ch: 0 }, 100);
-    }
-  };
-/*
-  const extractLineNumbers = (label) => {
-    console.log('Extracting line numbers from label:', label);
-    const match = label.match(/#(\d+)(?:-(\d+))?/);
-    console.log('Regex match result:', match);
-    
-    if (match) {
-        const start = parseInt(match[1]);
-        const end = match[2] ? parseInt(match[2]) : start;
-        console.log('Extracted start:', start, 'end:', end);
-        return { start, end };
-    }
-    console.warn('No line numbers found in label');
-    return null;
-  };
-
-  const highlightLines = (lineNumbers) => {
-    console.log('Highlighting lines:', lineNumbers);
-    if (!lineNumbers) {
-      console.log('No line numbers to highlight');
-      return;
-    }
-
-    const { start, end } = lineNumbers;
-    console.log('Start line:', start, 'End line:', end);
-
-    let editor;
-    if (code.length >= htmlCode.length && code.length >= cssCode.length) {
-      editor = jsEditorRef.current.editor;
-      console.log('Using JS editor');
-    } else if (htmlCode.length >= code.length && htmlCode.length >= cssCode.length) {
-      editor = htmlEditorRef.current.editor;
-      console.log('Using HTML editor');
-    } else {
-      editor = cssEditorRef.current.editor;
-      console.log('Using CSS editor');
-    }
-
-    if (!editor) {
-      console.error('No editor reference found');
-      return;
-    }
-
-    // Clear all previous highlights
-    editor.operation(() => {
-      editor.getAllMarks().forEach(mark => mark.clear());
-      for (let i = 0; i < editor.lineCount(); i++) {
-        editor.removeLineClass(i, 'background', 'highlighted-line');
-      }
-    });
-
-    // Add new highlight
-    editor.operation(() => {
-      for (let i = start; i <= end; i++) {
-        console.log('Adding highlight to line', i);
-        editor.addLineClass(i - 1, 'background', 'highlighted-line');
-      }
-    });
-
-    // Scroll to the highlighted area
-    console.log('Scrolling to line', start);
-    editor.scrollIntoView({ line: start - 1, ch: 0 }, 100);
-  };
-*/
-  const setDefaultCode = () => {
-    setCode(`console.clear();
-
-var ww = window.innerWidth,
-  wh = window.innerHeight;
-
-var renderer = new THREE.WebGLRenderer({
-  canvas: document.querySelector("canvas"),
-  antialias: true
-});
-renderer.setSize(ww, wh);
-renderer.setClearColor(0x000000);
-
-var scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x000000, 100, 160);
-
-var camera = new THREE.PerspectiveCamera(45, ww / wh, 0.1, 1000);
-camera.position.y = 30;
-camera.position.z = 100;
-TweenMax.to(camera.position, 6, {
-  z: 50,
-  y: 80,
-  yoyo:true,
-  ease: Power1.easeInOut,
-  repeatDelay: 0.5,
-  repeat: -1
-});
-
-
-var container = new THREE.Object3D();
-scene.add(container);
-
-TweenMax.to(container.rotation, 48, {
-  y:Math.PI*2,
-  ease:Power0.easeNone
-});
-
-var loader = new THREE.TextureLoader();
-loader.crossOrigin = 'Anonymous';
-/* Options */
-var dots, plane;
-var width = 150, 
-    height = 150;
-var center = new THREE.Vector3(0, 0, 0);
-var maxDistance = new THREE.Vector3(width*0.5, height*0.5).distanceTo(center);
-
-function createDots() {
-  var geom = new THREE.Geometry();
-  
-  var planeGeom = new THREE.PlaneGeometry( width * 2, height *2, width, height );
-  var m = new THREE.Matrix4();
-  m.makeRotationX(-Math.PI*0.5);
-  planeGeom.applyMatrix(m);
-  for(var i=0;i<planeGeom.vertices.length;i++){
-    var vector = planeGeom.vertices[i];
-    vector.dist = vector.distanceTo(center);
-    vector.ratio = (maxDistance - vector.dist) / (maxDistance * 0.1);
-  }
-  var planeMat = new THREE.MeshBasicMaterial( {color: 0x000000, side: THREE.DoubleSide} );
-  plane = new THREE.Mesh( planeGeom, planeMat );
-  container.add( plane );
-  
-  for(var x=(-width*0.5);x<width*0.5;x++){
-    for(var z=(-height*0.5);z<height*0.5;z++){
-      var vector = new THREE.Vector3(x * 1.2, 0, z * 1.2);
-      vector.dist = vector.distanceTo(center);
-      vector.ratio = (maxDistance - vector.dist) / (maxDistance * 0.9);
-      geom.vertices.push(vector);
-    }
-  }
-  var mat = new THREE.PointsMaterial({
-    color:0xffffff,
-    map: loader.load('https://collectionapi.metmuseum.org/api/collection/v1/iiif/436533/796180/main-image'),
-    transparent: true,
-    alphaTest: 0.4,
-    size : 2,
-    sizeAttenuation: false 
-  });
-  dots = new THREE.Points(geom, mat);
-  container.add(dots);
-}
-
-var ease = {
-  hole: 0,
-  depth: 0
-};
-TweenMax.to(ease,  6, {
-  hole: 2,
-  depth: 1.5,
-  yoyo: true,
-  ease: Power1.easeInOut,
-  repeatDelay: 0.5,
-  repeat: -1
-});
-function render(a){
-  
-  requestAnimationFrame(render);
-
-  for(var i=0;i<dots.geometry.vertices.length;i++){
-    var vector = dots.geometry.vertices[i];
-    ratioA = (vector.ratio * ease.depth) + ease.hole;
-    ratioA*= vector.ratio * vector.ratio * vector.ratio * vector.ratio;
-    vector.y = ratioA * -150;
-    vector.y = Math.max(vector.y, -100);
-    vector.y += Math.sin(-(vector.dist*0.4) + (a * 0.004));
-  }
-  for(var i=0;i<plane.geometry.vertices.length;i++){
-    var vector = plane.geometry.vertices[i];
-    ratioA = (vector.ratio * ease.depth) + ease.hole;
-    ratioA*= vector.ratio * vector.ratio * vector.ratio * vector.ratio;
-    vector.y = ratioA * -150;
-    vector.y = Math.max(vector.y, -100);
-    vector.y += Math.sin(-(vector.dist*0.4) + (a * 0.004));
-  }
-
-  dots.geometry.verticesNeedUpdate = true;
-  plane.geometry.verticesNeedUpdate = true;
-  
-  camera.lookAt(new THREE.Vector3(0, -20, 0));
-  
-  renderer.render(scene, camera);
-}
-createDots();
-requestAnimationFrame(render);
-
-window.addEventListener("resize", onResize);
-
-function onResize() {
-  ww = window.innerWidth;
-  wh = window.innerHeight;
-  camera.aspect = ww / wh;
-  camera.updateProjectionMatrix();
-  renderer.setSize(ww, wh);
-} 
-`);
-    setHtmlCode(`<!DOCTYPE html>
-<html>
-<head>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/84/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/1.20.0/TweenMax.min.js"></script>
-</head>
-<body>
-    
-</body>
-</html>
-<canvas></canvas>`);
-    setCssCode(`body{
-  margin: 0;
-  overflow: hidden;
-}
-canvas {
-  position: absolute;
-  top:0;
-  left:0;
-}`);
-  };
-
-  const setDefaultCodeOption2 = () => {
-    setCode(`var tl = anime.timeline({
-    easing: 'easeOutInBounce',
-    direction: 'alternate',
-    loop: true
-  });
-
-  // define letters
-  const L = [20, 40, 60, 80, 81, 82];
-  const I = [20, 40, 60, 80];
-
-  // Define word
-  const LILI = L.map(num => num + 3)
-    .concat(I.map(num => num + 8))
-    .concat(L.map(num => num + 11))
-    .concat(I.map(num => num + 16));
-
-  const circles = document.querySelectorAll('.el');
-
-  // Get LILI circles using the indices in LILI
-  const LILI_circles = LILI.map(index => circles[index]);
-
-  // Get the background circles by excluding indices in LILI
-  const background_circles = Array.from(circles).filter((el, index) => !LILI.includes(index));
-
-  tl.add({
-    targets: LILI_circles,
-    backgroundColor: '#FFFFFF',
-    borderColor: '#000000',
-    rotateX: 180,
-    duration: 500,
-    delay: anime.stagger(200, {grid: [14, 5], from: 'center'}),
-  });
-
-  tl.add({
-    targets: background_circles,
-    rotateX: 180,
-    duration: 500,
-    delay: anime.stagger(200, {grid: [14, 5], from: 'center'}),
-  }, 0);
-
-  tl.add({
-    targets: LILI_circles,
-    backgroundColor: '#FFFFFF',
-    duration: 2000,
-  });`);
-
-    setHtmlCode(`<!DOCTYPE html>
-    <html lang="en">
-    <head>
-       <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-    </head>
-    <body>
-      <div class="spiral-animation-demo">
-        ${Array(110).fill('<div class="el"></div>').join('\n        ')}
-      </div>
-    </body>
-    </html>`);
-
-    setCssCode(`body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-      background-color: #C8C8C8;
-    }
-
-    .spiral-animation-demo {
-      display: grid;
-      grid-template-columns: repeat(20, 50px); 
-      grid-template-rows: repeat(6, 50px);
-      gap: 10px;
-    }
-
-    .el {
-      border: 4px solid white;
-      width: 50px;
-      height: 50px;
-      background-color: black;
-      border-radius: 50%;
-    }`);
+      editor.scrollIntoView({ line: safeStart, ch: 0 }, 120);
+    }, 80);
   };
 
   return (
-    <div className="app">
-      <div className="input-section">
-        <div className="editors-container">
-          <div className="input-container">
-            <CodeMirror
-              value={code}
-              options={{
-                mode: 'javascript',
-                theme: 'material-darker',
-                lineNumbers: true
-              }}
-              onChange={(editor, data, value) => setCode(value)}
-              ref={jsEditorRef}
-            />
-            <CodeMirror
-              value={htmlCode}
-              options={{
-                mode: 'htmlmixed',
-                theme: 'material-darker',
-                lineNumbers: true
-              }}
-              onChange={(editor, data, value) => setHtmlCode(value)}
-              ref={htmlEditorRef}
-            />
-            <CodeMirror
-              value={cssCode}
-              options={{
-                mode: 'css',
-                theme: 'material-darker',
-                lineNumbers: true
-              }}
-              onChange={(editor, data, value) => setCssCode(value)}
-              ref={cssEditorRef}
-            />
-            <div className="button-group">
-              <button onClick={handleSubmit}>Generate Flowchart</button>
-              <button onClick={handlePreview}>Preview</button>
-              <button onClick={setDefaultCode}>Load Default Code</button>
-              <button onClick={setDefaultCodeOption2}>Load Default Code 2</button>
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="brand-lockup" aria-label="Flow">
+          <span className="brand-mark" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+          <span className="brand-name">Flow</span>
+          <span className="project-name">Untitled workspace</span>
+        </div>
+
+        <div className="topbar-actions">
+          <span className="service-status">
+            <i aria-hidden="true" />
+            AI flow mapper
+          </span>
+          <button className="button button-tertiary" type="button" onClick={clearWorkspace}>
+            New workspace
+          </button>
+        </div>
+      </header>
+
+      <main className="workspace">
+        <section className="glass-panel editor-panel" aria-label="Code workspace">
+          <header className="editor-heading">
+            <div>
+              <span className="eyebrow">Source</span>
+              <h1>Shape the code.<br />See the system.</h1>
+              <p>Turn implementation details into a clear, navigable map.</p>
             </div>
+
+            <div className="example-actions" aria-label="Load example">
+              {EXAMPLES.map((example, index) => (
+                <button
+                  className="button button-soft"
+                  key={example.name}
+                  type="button"
+                  onClick={() => loadExample(index)}
+                >
+                  {example.name}
+                </button>
+              ))}
+            </div>
+          </header>
+
+          <nav className="file-tabs" aria-label="Source files">
+            {FILES.map((file) => (
+              <button
+                className={'file-tab' + (activeFile === file.id ? ' is-active' : '')}
+                key={file.id}
+                type="button"
+                aria-current={activeFile === file.id ? 'page' : undefined}
+                onClick={() => setActiveFile(file.id)}
+              >
+                <span>{file.short}</span>
+                {file.label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="editor-surface">
+            <CodeMirror
+              value={activeValue}
+              options={{
+                mode: activeMeta.mode,
+                theme: 'material-darker',
+                lineNumbers: true,
+                lineWrapping: false,
+                tabSize: 2,
+                indentUnit: 2
+              }}
+              editorDidMount={(editor) => {
+                editorRef.current = editor;
+              }}
+              onBeforeChange={(editor, data, value) => updateActiveFile(value)}
+            />
           </div>
-        </div>
-      </div>
-      
-      <div className="right-section">
-        <div className="flowchart-section">
-          <h2>Flowchart Preview</h2>
-          <div id="chart-container"></div>
-        </div>
-        <div className="preview-section">
-          <h3>Code Preview</h3>
-          <iframe id="preview-frame" title="Code Preview"></iframe>
-        </div>
-      </div>
+
+          <footer className="editor-footer">
+            <span>{lineCount} {lineCount === 1 ? 'line' : 'lines'} · {activeMeta.label}</span>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={handlePreview}
+              disabled={!hasSource}
+            >
+              Run preview
+              <span aria-hidden="true">↗</span>
+            </button>
+          </footer>
+        </section>
+
+        <section className="glass-panel output-panel" aria-label="Generated output">
+          <header className="output-toolbar">
+            <div className="view-switcher" aria-label="Output view">
+              <button
+                className={outputView === 'flowchart' ? 'is-active' : ''}
+                type="button"
+                onClick={() => setOutputView('flowchart')}
+              >
+                Flowchart
+              </button>
+              <button
+                className={outputView === 'preview' ? 'is-active' : ''}
+                type="button"
+                onClick={() => setOutputView('preview')}
+              >
+                Live preview
+              </button>
+            </div>
+
+            <button
+              className="button button-primary"
+              type="button"
+              onClick={handleSubmit}
+              disabled={generationState === 'generating' || !hasSource}
+            >
+              <span
+                className={generationState === 'generating' ? 'spark is-thinking' : 'spark'}
+                aria-hidden="true"
+              >
+                ✦
+              </span>
+              {generationState === 'generating' ? 'Mapping…' : 'Generate flowchart'}
+            </button>
+          </header>
+
+          <div className={'output-stage ' + (outputView === 'preview' ? 'preview-stage' : '')}>
+            {outputView === 'flowchart' && (
+              <>
+                {!mermaidCode && generationState !== 'generating' && (
+                  <div className="empty-state">
+                    <div className="flow-glyph" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                    </div>
+                    <h2>Your code, made visible.</h2>
+                    <p>Load an example or add JavaScript, then let Flow trace the structure for you.</p>
+                    {!hasSource && (
+                      <button className="button button-soft" type="button" onClick={() => loadExample(0)}>
+                        Try an example
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {generationState === 'generating' && (
+                  <div className="thinking-state" aria-live="polite">
+                    <span className="thinking-orbit" aria-hidden="true"><i /></span>
+                    <strong>Understanding your code</strong>
+                    <p>Mapping the primary flow and its decisions.</p>
+                  </div>
+                )}
+
+                {mermaidCode && (
+                  <div
+                    className="diagram-container"
+                    ref={diagramRef}
+                    onClick={handleDiagramClick}
+                  />
+                )}
+              </>
+            )}
+
+            {outputView === 'preview' && (
+              previewDocument ? (
+                <iframe
+                  className="preview-frame"
+                  title="Live code preview"
+                  sandbox="allow-scripts"
+                  srcDoc={previewDocument}
+                />
+              ) : (
+                <div className="empty-state compact">
+                  <span className="preview-symbol" aria-hidden="true">↗</span>
+                  <h2>Preview your interface.</h2>
+                  <p>Run the current HTML, CSS, and JavaScript in an isolated canvas.</p>
+                  <button
+                    className="button button-soft"
+                    type="button"
+                    onClick={handlePreview}
+                    disabled={!hasSource}
+                  >
+                    Run preview
+                  </button>
+                </div>
+              )
+            )}
+          </div>
+
+          <footer className={'ai-status ' + currentStatus.tone} aria-live="polite">
+            <span className="ai-indicator" aria-hidden="true"><i /></span>
+            <div>
+              <strong>{currentStatus.label}</strong>
+              <span>{errorMessage || currentStatus.detail}</span>
+            </div>
+            {generationState === 'error' && source.javascript.trim() && (
+              <button className="button button-tertiary" type="button" onClick={handleSubmit}>
+                Try again
+              </button>
+            )}
+          </footer>
+        </section>
+      </main>
     </div>
   );
-};
+}
 
 export default App;
