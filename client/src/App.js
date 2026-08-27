@@ -356,10 +356,11 @@ function buildFallbackMermaid(code = '') {
 function App() {
   const [source, setSource] = useState(EMPTY_SOURCE);
   const [activeFile, setActiveFile] = useState('javascript');
-  const [outputView, setOutputView] = useState('preview');
+  const [outputView, setOutputView] = useState('hidden');
   const [selectedExample, setSelectedExample] = useState(0);
   const [mermaidCode, setMermaidCode] = useState('');
   const [previewDocument, setPreviewDocument] = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [hasPreviewed, setHasPreviewed] = useState(false);
   const [generationState, setGenerationState] = useState('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -370,9 +371,13 @@ function App() {
   const [connectionMessage, setConnectionMessage] = useState('');
   const [aiAccess, setAiAccess] = useState(null);
   const [pendingLineRange, setPendingLineRange] = useState(null);
+  const [diagramTransform, setDiagramTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [isDiagramDragging, setIsDiagramDragging] = useState(false);
 
   const editorRef = useRef(null);
   const diagramRef = useRef(null);
+  const diagramViewportRef = useRef(null);
+  const diagramDragRef = useRef({ active: false, moved: false, x: 0, y: 0 });
   const renderId = useRef(0);
   const highlightedLinesRef = useRef([]);
   const activeMeta = FILES.find((file) => file.id === activeFile);
@@ -382,7 +387,13 @@ function App() {
     [activeValue]
   );
   const hasSource = Object.values(source).some((value) => value.trim());
-  const currentStatus = generationState !== 'idle'
+  const currentStatus = previewLoading
+    ? {
+        label: 'Launching preview',
+        detail: 'Loading the creative-coding libraries and animation canvas…',
+        tone: 'thinking'
+      }
+    : generationState !== 'idle'
     ? STATUS[generationState]
     : !hasPreviewed
       ? STATUS.idle
@@ -398,6 +409,8 @@ function App() {
             tone: 'success'
           };
   const example = EXAMPLES[selectedExample];
+  const matchesSelectedExample = FILES.every((file) => source[file.id] === example.source[file.id]);
+  const hasInstantFlowchart = matchesSelectedExample && Boolean(example.flowchart);
 
   useEffect(() => {
     mermaid.initialize({
@@ -470,6 +483,10 @@ function App() {
   }, [mermaidCode, source.javascript]);
 
   useEffect(() => {
+    setDiagramTransform({ x: 0, y: 0, scale: 1 });
+  }, [mermaidCode]);
+
+  useEffect(() => {
     if (!pendingLineRange || activeFile !== pendingLineRange.file) return undefined;
 
     const revealTimer = window.setTimeout(() => {
@@ -506,6 +523,8 @@ function App() {
   const updateActiveFile = (value) => {
     setSource((current) => ({ ...current, [activeFile]: value }));
     setHasPreviewed(false);
+    setPreviewLoading(false);
+    setMermaidCode('');
     if (generationState === 'error') {
       setGenerationState('idle');
       setErrorMessage('');
@@ -518,7 +537,7 @@ function App() {
     setActiveFile('javascript');
     setMermaidCode('');
     setPreviewDocument('');
-    setOutputView('preview');
+    setPreviewLoading(false);
     setHasPreviewed(false);
     setGenerationState('idle');
     setErrorMessage('');
@@ -529,7 +548,7 @@ function App() {
     setActiveFile('javascript');
     setMermaidCode('');
     setPreviewDocument('');
-    setOutputView('preview');
+    setPreviewLoading(false);
     setHasPreviewed(false);
     setGenerationState('idle');
     setErrorMessage('');
@@ -555,9 +574,9 @@ function App() {
       '</html>'
     ].join('');
 
-    setPreviewDocument(document);
-    setOutputView('preview');
-    setHasPreviewed(true);
+    setPreviewLoading(true);
+    setPreviewDocument(document + `<!-- preview-${Date.now()} -->`);
+    setHasPreviewed(false);
     setGenerationState('idle');
     setErrorMessage('');
   };
@@ -571,9 +590,10 @@ function App() {
     }
 
     if (!hasPreviewed) {
-      setOutputView('preview');
       setGenerationState('error');
-      setErrorMessage('Run the live preview first so you can check the code before mapping it.');
+      setErrorMessage(previewLoading
+        ? 'Wait for the preview to finish loading before mapping it.'
+        : 'Launch the preview first so you can check the code before mapping it.');
       return;
     }
 
@@ -584,7 +604,12 @@ function App() {
 
     setGenerationState('generating');
     setErrorMessage('');
-    setOutputView('flowchart');
+
+    if (hasInstantFlowchart) {
+      setMermaidCode(cleanMermaidSyntax(example.flowchart));
+      setGenerationState('completed');
+      return;
+    }
 
     try {
       const headers = aiAccess.mode === 'personal'
@@ -662,6 +687,11 @@ function App() {
   };
 
   const handleDiagramClick = (event) => {
+    if (diagramDragRef.current.moved) {
+      diagramDragRef.current.moved = false;
+      return;
+    }
+
     const node = event.target.closest('.node');
     const text = node && node.textContent;
     const match = text && text.match(/#(\d+)(?:-(\d+))?/);
@@ -671,6 +701,65 @@ function App() {
     const end = Math.max(Number(match[2] || match[1]) - 1, start);
     setActiveFile('javascript');
     setPendingLineRange({ file: 'javascript', start, end, selectedAt: Date.now() });
+  };
+
+  const updateDiagramZoom = (nextScale, originX, originY) => {
+    setDiagramTransform((current) => {
+      const scale = Math.min(Math.max(nextScale, 0.45), 2.8);
+      const viewport = diagramViewportRef.current;
+      const centerX = originX == null && viewport ? viewport.clientWidth / 2 : originX || 0;
+      const centerY = originY == null && viewport ? viewport.clientHeight / 2 : originY || 0;
+      const contentX = (centerX - current.x) / current.scale;
+      const contentY = (centerY - current.y) / current.scale;
+
+      return {
+        x: centerX - contentX * scale,
+        y: centerY - contentY * scale,
+        scale
+      };
+    });
+  };
+
+  const handleDiagramWheel = (event) => {
+    event.preventDefault();
+    const bounds = diagramViewportRef.current.getBoundingClientRect();
+    const factor = event.deltaY < 0 ? 1.12 : 0.89;
+    updateDiagramZoom(
+      diagramTransform.scale * factor,
+      event.clientX - bounds.left,
+      event.clientY - bounds.top
+    );
+  };
+
+  const handleDiagramPointerDown = (event) => {
+    if (event.button !== 0) return;
+    diagramDragRef.current = {
+      active: true,
+      moved: false,
+      x: event.clientX,
+      y: event.clientY
+    };
+    setIsDiagramDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleDiagramPointerMove = (event) => {
+    const drag = diagramDragRef.current;
+    if (!drag.active) return;
+    const deltaX = event.clientX - drag.x;
+    const deltaY = event.clientY - drag.y;
+    if (Math.abs(deltaX) + Math.abs(deltaY) > 3) drag.moved = true;
+    drag.x = event.clientX;
+    drag.y = event.clientY;
+    setDiagramTransform((current) => ({ ...current, x: current.x + deltaX, y: current.y + deltaY }));
+  };
+
+  const handleDiagramPointerUp = (event) => {
+    diagramDragRef.current.active = false;
+    setIsDiagramDragging(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   };
 
   return (
@@ -702,18 +791,18 @@ function App() {
       </header>
 
       <main className="workspace">
-        <section className="glass-panel editor-panel" aria-label="Code workspace">
+        <section className="glass-panel editor-panel resizable-card" aria-label="Code workspace" title="Drag the lower-right corner to resize this card">
           <header className="editor-heading">
             <div>
-              <span className="eyebrow">Source</span>
-              <h1>Shape the code.<br />See the system.</h1>
-              <p>Turn implementation details into a clear, navigable map.</p>
+              <span className="eyebrow">01 · Code</span>
+              <h1>Load a study.<br />Or paste your own.</h1>
+              <p>Bring in creative code from an open-source sketch, then inspect it file by file.</p>
             </div>
 
             <div className="example-library" aria-label="Example code library">
               <div className="example-library-heading">
-                <span>Example library</span>
-                <small>Ready-made code you can load and edit</small>
+                <span>Creative code library</span>
+                <small>Complex studies with branching systems</small>
               </div>
               <div className="example-picker">
                 <label className="sr-only" htmlFor="example-select">Choose example code</label>
@@ -776,23 +865,179 @@ function App() {
           <footer className="editor-footer">
             <span>
               <strong>Step 1</strong>
-              Check your code in the live preview
+              Load an example or paste your own code
               <small>{lineCount} {lineCount === 1 ? 'line' : 'lines'} · {activeMeta.label}</small>
             </span>
+            <span className="resize-hint">Drag corner to resize</span>
+          </footer>
+          <i className="resize-corner" aria-hidden="true" />
+        </section>
+
+        <section className="glass-panel preview-panel resizable-card" aria-label="Live preview" title="Drag the lower-right corner to resize this card">
+          <header className="card-toolbar">
+            <div className="step-heading">
+              <span>02 · Preview</span>
+              <strong>Launch the work</strong>
+            </div>
             <button
               className="button button-preview"
               type="button"
               onClick={handlePreview}
-              disabled={!hasSource}
+              disabled={!hasSource || previewLoading}
             >
               <strong aria-hidden="true">▶</strong>
-              Run live preview
-              <span aria-hidden="true">↗</span>
+              {previewLoading ? 'Loading preview…' : previewDocument ? 'Reload preview' : 'Launch preview'}
             </button>
+          </header>
+
+          <div className="output-stage preview-stage">
+            {previewDocument ? (
+              <iframe
+                className="preview-frame"
+                title="Live code preview"
+                sandbox="allow-scripts"
+                srcDoc={previewDocument}
+                onLoad={() => {
+                  setPreviewLoading(false);
+                  setHasPreviewed(true);
+                }}
+              />
+            ) : (
+              <div className="empty-state compact">
+                <span className="preview-symbol" aria-hidden="true">↗</span>
+                <span className="empty-step">Step 2 · Preview</span>
+                <h2>See the code in motion.</h2>
+                <p>The preview loads scripts and animation systems in an isolated canvas.</p>
+              </div>
+            )}
+
+            {previewLoading && (
+              <div className="preview-loading" role="status" aria-live="polite">
+                <span className="motion-symbol" aria-hidden="true"><i /><i /><i /></span>
+                <strong>Launching the animation</strong>
+                <p>Loading libraries, geometry, and the first frame…</p>
+              </div>
+            )}
+          </div>
+
+          <footer className="card-footer">
+            <span className={'status-dot ' + (previewLoading ? 'is-loading' : hasPreviewed ? 'is-ready' : '')} aria-hidden="true" />
+            <span>{previewLoading ? 'Preparing preview' : hasPreviewed ? 'Preview ready' : 'Waiting for code'}</span>
           </footer>
+          <i className="resize-corner" aria-hidden="true" />
         </section>
 
-        <section className="glass-panel output-panel" aria-label="Generated output">
+        <section className="glass-panel flowchart-panel resizable-card" aria-label="Generated flowchart" title="Drag the lower-right corner to resize this card">
+          <header className="card-toolbar">
+            <div className="step-heading">
+              <span>04 · Flowchart</span>
+              <strong>Map the structure</strong>
+            </div>
+            <button
+              className="button button-flowchart"
+              type="button"
+              onClick={handleSubmit}
+              disabled={generationState === 'generating' || !hasSource || !hasPreviewed}
+            >
+              <span className={generationState === 'generating' ? 'spark is-thinking' : 'spark'} aria-hidden="true">✦</span>
+              {generationState === 'generating' ? 'Mapping…' : 'Generate flowchart'}
+            </button>
+          </header>
+
+          <div className="output-stage flowchart-stage">
+            {!hasPreviewed && !previewLoading && !mermaidCode && (
+              <div className="empty-state compact">
+                <div className="flow-glyph" aria-hidden="true"><span /><span /><span /></div>
+                <span className="empty-step">Preview first</span>
+                <h2>The map follows the motion.</h2>
+                <p>Launch the preview before generating the code structure.</p>
+              </div>
+            )}
+
+            {previewLoading && !mermaidCode && (
+              <div className="empty-state compact">
+                <span className="thinking-orbit" aria-hidden="true"><i /></span>
+                <h2>Preview is still loading.</h2>
+                <p>The flowchart unlocks after the first frame is ready.</p>
+              </div>
+            )}
+
+            {hasPreviewed && !aiAccess && !mermaidCode && (
+              <div className="api-gate">
+                <span className="empty-step">03 · AI access</span>
+                <h2>Connect before mapping.</h2>
+                <p>Use the demo password or your own API key. Prebuilt archive diagrams open instantly after this step.</p>
+                <button className="button button-soft" type="button" onClick={() => setIsConnectOpen(true)}>
+                  Connect AI
+                </button>
+              </div>
+            )}
+
+            {hasPreviewed && aiAccess && !mermaidCode && generationState !== 'generating' && (
+              <div className="empty-state compact">
+                <span className="preview-symbol" aria-hidden="true">✦</span>
+                <h2>{hasInstantFlowchart ? 'Instant map ready.' : 'Ready to understand the system.'}</h2>
+                <p>{hasInstantFlowchart ? 'This archived example includes a prebuilt, non-linear flowchart.' : 'AI will trace dependencies, loops, branches, and parallel systems.'}</p>
+              </div>
+            )}
+
+            {generationState === 'generating' && (
+              <div className="thinking-state" aria-live="polite">
+                <span className="thinking-orbit" aria-hidden="true"><i /></span>
+                <strong>Understanding your code</strong>
+                <p>Mapping dependencies, decisions, and relationships.</p>
+              </div>
+            )}
+
+            {mermaidCode && (
+              <>
+                <div className="diagram-controls" aria-label="Flowchart zoom controls">
+                  <button type="button" onClick={() => updateDiagramZoom(diagramTransform.scale / 1.2)} aria-label="Zoom out">−</button>
+                  <span>{Math.round(diagramTransform.scale * 100)}%</span>
+                  <button type="button" onClick={() => updateDiagramZoom(diagramTransform.scale * 1.2)} aria-label="Zoom in">+</button>
+                  <button
+                    className="diagram-reset"
+                    type="button"
+                    onClick={() => setDiagramTransform({ x: 0, y: 0, scale: 1 })}
+                  >
+                    Reset
+                  </button>
+                </div>
+                <div
+                  className={'diagram-viewport' + (isDiagramDragging ? ' is-dragging' : '')}
+                  ref={diagramViewportRef}
+                  onWheel={handleDiagramWheel}
+                  onPointerDown={handleDiagramPointerDown}
+                  onPointerMove={handleDiagramPointerMove}
+                  onPointerUp={handleDiagramPointerUp}
+                  onPointerCancel={handleDiagramPointerUp}
+                >
+                  <div
+                    className="diagram-canvas"
+                    style={{ transform: `translate(${diagramTransform.x}px, ${diagramTransform.y}px) scale(${diagramTransform.scale})` }}
+                  >
+                    <div className="diagram-container" ref={diagramRef} onClick={handleDiagramClick} />
+                  </div>
+                </div>
+                <div className="diagram-help">Drag to pan · Scroll to zoom · Select a node to reveal its code</div>
+              </>
+            )}
+          </div>
+
+          <footer className={'ai-status ' + currentStatus.tone} aria-live="polite">
+            <span className="ai-indicator" aria-hidden="true"><i /></span>
+            <div>
+              <strong>{currentStatus.label}</strong>
+              <span>{errorMessage || currentStatus.detail}</span>
+            </div>
+            {generationState === 'error' && source.javascript.trim() && (
+              <button className="button button-tertiary" type="button" onClick={handleSubmit}>Try again</button>
+            )}
+          </footer>
+          <i className="resize-corner" aria-hidden="true" />
+        </section>
+
+        <section className="glass-panel output-panel legacy-output-panel" aria-hidden="true">
           <header className="output-toolbar">
             <div className="view-switcher" aria-label="Output view">
               <button
