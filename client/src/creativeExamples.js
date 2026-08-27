@@ -4,8 +4,7 @@ export const CREATIVE_EXAMPLES = [
     category: 'Three.js · generative 3D',
     description: 'From the archived project: a deforming point landscape with geometry construction, nested loops, easing, rendering, and resize systems.',
     flowchart: `flowchart TB
-  Boot["Bootstrap animation #127-129"]
-  Boot --> Foundation["Renderer scene and camera #3-18"]
+  Foundation["Renderer scene and camera #3-18"]
   Foundation --> Terrain["Create terrain objects #69-81"]
   Terrain --> Texture["Generate dot texture #27-41"]
   Terrain --> Points["Build point grid #43-54"]
@@ -176,8 +175,7 @@ aside strong { font-size: 18px; font-weight: 580; }`
     category: 'Anime.js · sequencing',
     description: 'From the archived project: a letter system built from indexed cells, target partitioning, parallel timelines, stagger logic, and reversible interaction.',
     flowchart: `flowchart TB
-  Boot["Bootstrap grid and interactions #84-88"]
-  Boot --> Coordinates["setGridCoordinates #27-32"]
+  Coordinates["setGridCoordinates #27-32"]
   Coordinates --> Word["Build word indices #8-17"]
   Word --> Partition["Split letter and field targets #19-25"]
   Partition --> Letters["Resolve letter cells #22"]
@@ -327,6 +325,19 @@ header { display: flex; justify-content: space-between; margin-bottom: 18px; fon
     name: 'Recursive wind garden',
     category: 'Canvas · recursion',
     description: 'A recursive branching system with depth limits, probabilistic forks, wind forces, seasonal color decisions, and a continuous render loop.',
+    flowchart: `flowchart TB
+  Setup["Canvas and interaction state #1-4"]
+  Setup --> Resize["Scale canvas for the viewport #6-13"]
+  Setup --> Pointer["Update pointer position #74-77"]
+  Pointer --> Wind["Ease wind and branch spread #65-66"]
+  Resize --> Render["Clear and render each frame #63-72"]
+  Wind --> Render
+  Render --> Branch["Draw recursive branch #28-61"]
+  Branch --> LeafCase["Stop recursion at a leaf #29-31"]
+  LeafCase --> Leaf["Draw and color the leaf #15-26"]
+  Branch --> Stem["Draw the swaying stem #34-40"]
+  Stem --> Children["Recurse left and right #42-52"]
+  Stem --> ThirdBranch["Add every third branch #54-60"]`,
     source: {
       javascript: `const canvas = document.querySelector('#garden');
 const context = canvas.getContext('2d');
@@ -427,6 +438,19 @@ aside strong { font-size: 19px; font-weight: 600; }`
     name: 'Boid constellation',
     category: 'Canvas · agent system',
     description: 'A multi-agent simulation with neighborhood searches, separation, alignment, cohesion, boundary wrapping, pointer avoidance, and connection rules.',
+    flowchart: `flowchart TB
+  Canvas["Configure canvas and flock settings #1-14"]
+  Canvas --> Initialize["Create flock and start rendering #142-144"]
+  Initialize --> Create["Create randomized boids #16-24"]
+  Initialize --> Render["Run the animation frame #121-133"]
+  Render --> Update["Update every boid #93-104"]
+  Update --> Neighbors["Find nearby boids #35-40"]
+  Neighbors --> Flock["Combine flocking forces #42-72"]
+  Flock --> Avoid["Add pointer avoidance #74-84"]
+  Pointer["Track pointer activity #135-140"] --> Avoid
+  Avoid --> Motion["Limit force move and wrap #95-103"]
+  Render --> Connections["Draw nearby connections #106-119"]
+  Render --> Boids["Draw each boid point #126-131"]`,
     source: {
       javascript: `const canvas = document.querySelector('#constellation');
 const context = canvas.getContext('2d');
