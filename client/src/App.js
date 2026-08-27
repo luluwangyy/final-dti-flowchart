@@ -11,6 +11,7 @@ import './styles.css';
 import { CREATIVE_EXAMPLES } from './creativeExamples';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5050';
+const DEFAULT_DIAGRAM_SCALE = 0.78;
 
 const EMPTY_SOURCE = {
   javascript: '',
@@ -372,7 +373,7 @@ function App() {
   const [connectionMessage, setConnectionMessage] = useState('');
   const [aiAccess, setAiAccess] = useState(null);
   const [pendingLineRange, setPendingLineRange] = useState(null);
-  const [diagramTransform, setDiagramTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [diagramTransform, setDiagramTransform] = useState({ x: 0, y: 0, scale: DEFAULT_DIAGRAM_SCALE });
   const [isDiagramDragging, setIsDiagramDragging] = useState(false);
   const [cardHeights, setCardHeights] = useState(() => (
     window.innerWidth <= 1120
@@ -455,7 +456,7 @@ function App() {
       if (!viewport || !content) return;
 
       const contentWidth = Math.max(content.scrollWidth, 1);
-      const scale = Math.min(Math.max((viewport.clientWidth - 28) / contentWidth, 0.4), 0.82);
+      const scale = DEFAULT_DIAGRAM_SCALE;
       setDiagramTransform({
         x: Math.max((viewport.clientWidth - contentWidth * scale) / 2, 14),
         y: 18,
@@ -550,7 +551,7 @@ function App() {
   }, [fitDiagramToViewport, mermaidCode, source.javascript]);
 
   useEffect(() => {
-    setDiagramTransform({ x: 0, y: 0, scale: 1 });
+    setDiagramTransform({ x: 0, y: 0, scale: DEFAULT_DIAGRAM_SCALE });
   }, [mermaidCode]);
 
   useEffect(() => () => {
