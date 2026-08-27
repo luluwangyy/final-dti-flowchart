@@ -331,15 +331,17 @@ button:focus-visible,
 
 .example-picker select {
   width: 100%;
-  height: 34px;
-  padding: 0 30px 0 10px;
+  height: 42px;
+  padding: 0 34px 0 13px;
   color: var(--ink);
   border: 1px solid var(--line-strong);
   border-radius: 10px;
   outline: none;
   background: rgba(255, 255, 255, 0.82);
   font: inherit;
-  font-size: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
 }
 
 .example-picker select:focus-visible {
@@ -1815,6 +1817,111 @@ button:focus-visible,
 
 .connection-note > span {
   color: var(--accent-strong);
+}
+
+.card-title {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-weight: 720;
+  letter-spacing: -0.045em;
+}
+
+.editor-heading .card-title {
+  font-size: clamp(28px, 2.4vw, 38px);
+  line-height: 1;
+}
+
+.card-toolbar .card-title {
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.example-picker .button-soft {
+  min-height: 36px;
+  padding-inline: 15px;
+  color: #fff;
+  border-color: var(--accent-strong);
+  background: linear-gradient(145deg, #78877d 0%, #526158 100%);
+  box-shadow: 0 9px 22px rgba(72, 88, 77, 0.2);
+  font-weight: 700;
+}
+
+.example-picker .button-soft:hover:not(:disabled) {
+  color: #fff;
+  background: linear-gradient(145deg, #849389 0%, #46554c 100%);
+  box-shadow: 0 13px 27px rgba(72, 88, 77, 0.27);
+}
+
+.example-library .example-description {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.example-library .own-code-note {
+  margin: 9px 0 0;
+  padding-top: 9px;
+  color: var(--ink-soft);
+  border-top: 1px solid rgba(73, 83, 77, 0.09);
+  font-size: 12px;
+  font-weight: 570;
+  line-height: 1.45;
+}
+
+.file-tab {
+  gap: 0;
+}
+
+.info-button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: var(--accent-strong);
+  border: 1px solid rgba(87, 105, 94, 0.2);
+  border-radius: 50%;
+  background: rgba(247, 249, 246, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7), 0 7px 18px rgba(72, 88, 77, 0.08);
+  font-family: Georgia, serif;
+  font-size: 15px;
+  font-style: italic;
+  font-weight: 700;
+  cursor: pointer;
+  place-items: center;
+}
+
+.info-button:hover,
+.info-button:focus-visible {
+  background: rgba(237, 242, 237, 0.96);
+  box-shadow: 0 10px 22px rgba(72, 88, 77, 0.13);
+  outline: none;
+}
+
+.info-modal {
+  width: min(520px, calc(100vw - 36px));
+}
+
+.info-content {
+  padding: 4px 24px 25px;
+  color: var(--ink-soft);
+}
+
+.info-content > p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.info-content ol {
+  display: grid;
+  gap: 10px;
+  margin: 20px 0 0;
+  padding-left: 22px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .diagram-viewport {

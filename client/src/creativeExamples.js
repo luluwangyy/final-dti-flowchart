@@ -2,7 +2,7 @@ export const CREATIVE_EXAMPLES = [
   {
     name: 'Particle terrain',
     category: 'Three.js · generative 3D',
-    description: 'From the archived project: a deforming point landscape with geometry construction, nested loops, easing, rendering, and resize systems.',
+    description: '',
     flowchart: `flowchart TB
   Foundation["Renderer scene and camera #3-18"]
   Foundation --> Terrain["Create terrain objects #69-81"]
@@ -437,7 +437,7 @@ aside strong { font-size: 19px; font-weight: 600; }`
   {
     name: 'Boid constellation',
     category: 'Canvas · agent system',
-    description: 'A multi-agent simulation with neighborhood searches, separation, alignment, cohesion, boundary wrapping, pointer avoidance, and connection rules.',
+    description: 'Bring in creative code from an open-source sketch, then inspect it file by file.',
     flowchart: `flowchart TB
   Canvas["Configure canvas and flock settings #1-14"]
   Canvas --> Initialize["Create flock and start rendering #142-144"]

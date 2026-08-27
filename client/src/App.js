@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import mermaid from 'mermaid';
 import { Controlled as CodeMirror } from 'react-codemirror2';
@@ -365,6 +365,7 @@ function App() {
   const [generationState, setGenerationState] = useState('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [isConnectOpen, setIsConnectOpen] = useState(false);
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [connectionMode, setConnectionMode] = useState('demo');
   const [credentialInput, setCredentialInput] = useState('');
   const [connectionState, setConnectionState] = useState('disconnected');
@@ -405,7 +406,7 @@ function App() {
       ? STATUS.idle
       : !aiAccess
         ? {
-            label: 'Preview ready',
+            label: 'Connect AI to continue',
             detail: 'Connect AI with demo access or a personal key to generate the flowchart.',
             tone: 'success'
           }
@@ -417,6 +418,51 @@ function App() {
   const example = EXAMPLES[selectedExample];
   const matchesSelectedExample = FILES.every((file) => source[file.id] === example.source[file.id]);
   const hasInstantFlowchart = matchesSelectedExample && Boolean(example.flowchart);
+
+  const applySourceHighlight = useCallback((range) => {
+    const editor = editorRef.current;
+    if (!editor || !range) return false;
+
+    const document = editor.getDoc();
+    const lastLine = Math.max(document.lineCount() - 1, 0);
+    const safeStart = Math.min(range.start, lastLine);
+    const safeEnd = Math.min(range.end, lastLine);
+
+    highlightedLinesRef.current.forEach((line) => {
+      document.removeLineClass(line, 'background', 'highlighted-code-line');
+    });
+
+    const highlightedLines = [];
+    editor.operation(() => {
+      for (let line = safeStart; line <= safeEnd; line += 1) {
+        document.addLineClass(line, 'background', 'highlighted-code-line');
+        highlightedLines.push(line);
+      }
+      document.setCursor({ line: safeStart, ch: 0 });
+    });
+
+    highlightedLinesRef.current = highlightedLines;
+    editor.refresh();
+    editor.scrollTo(null, Math.max(editor.heightAtLine(safeStart, 'local') - 8, 0));
+    editor.focus();
+    return true;
+  }, []);
+
+  const fitDiagramToViewport = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      const viewport = diagramViewportRef.current;
+      const content = diagramRef.current;
+      if (!viewport || !content) return;
+
+      const contentWidth = Math.max(content.scrollWidth, 1);
+      const scale = Math.min(Math.max((viewport.clientWidth - 28) / contentWidth, 0.4), 0.82);
+      setDiagramTransform({
+        x: Math.max((viewport.clientWidth - contentWidth * scale) / 2, 14),
+        y: 18,
+        scale
+      });
+    });
+  }, []);
 
   useEffect(() => {
     mermaid.initialize({
@@ -444,15 +490,18 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!isConnectOpen) return undefined;
+    if (!isConnectOpen && !isInfoOpen) return undefined;
 
     const closeOnEscape = (event) => {
-      if (event.key === 'Escape') setIsConnectOpen(false);
+      if (event.key === 'Escape') {
+        setIsConnectOpen(false);
+        setIsInfoOpen(false);
+      }
     };
 
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [isConnectOpen]);
+  }, [isConnectOpen, isInfoOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -477,6 +526,7 @@ function App() {
               node.dataset.sourceEnd = sourceRange[2] || sourceRange[1];
             }
           });
+          fitDiagramToViewport();
         }
       } catch (error) {
         if (!cancelled) {
@@ -497,7 +547,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [mermaidCode, source.javascript]);
+  }, [fitDiagramToViewport, mermaidCode, source.javascript]);
 
   useEffect(() => {
     setDiagramTransform({ x: 0, y: 0, scale: 1 });
@@ -509,37 +559,9 @@ function App() {
 
   useEffect(() => {
     if (!pendingLineRange || activeFile !== pendingLineRange.file) return undefined;
-
-    const revealTimer = window.setTimeout(() => {
-      const editor = editorRef.current;
-      if (!editor) return;
-
-      const document = editor.getDoc();
-      const lastLine = Math.max(document.lineCount() - 1, 0);
-      const safeStart = Math.min(pendingLineRange.start, lastLine);
-      const safeEnd = Math.min(pendingLineRange.end, lastLine);
-
-      highlightedLinesRef.current.forEach((line) => {
-        document.removeLineClass(line, 'background', 'highlighted-code-line');
-      });
-
-      const highlightedLines = [];
-      editor.operation(() => {
-        for (let line = safeStart; line <= safeEnd; line += 1) {
-          document.addLineClass(line, 'background', 'highlighted-code-line');
-          highlightedLines.push(line);
-        }
-        document.setCursor({ line: safeStart, ch: 0 });
-      });
-
-      highlightedLinesRef.current = highlightedLines;
-      editor.refresh();
-      editor.scrollTo(null, Math.max(editor.heightAtLine(safeStart, 'local') - 8, 0));
-      editor.focus();
-    }, 0);
-
-    return () => window.clearTimeout(revealTimer);
-  }, [activeFile, pendingLineRange]);
+    applySourceHighlight(pendingLineRange);
+    return undefined;
+  }, [activeFile, applySourceHighlight, pendingLineRange]);
 
   const clearCodeHighlights = () => {
     const editor = editorRef.current;
@@ -566,8 +588,9 @@ function App() {
   };
 
   const loadExample = (index) => {
+    const nextSource = EXAMPLES[index].source;
     clearCodeHighlights();
-    setSource(EXAMPLES[index].source);
+    setSource(nextSource);
     setSelectedExample(index);
     setActiveFile('javascript');
     setMermaidCode('');
@@ -576,6 +599,7 @@ function App() {
     setHasPreviewed(false);
     setGenerationState('idle');
     setErrorMessage('');
+    handlePreview(nextSource);
   };
 
   const clearWorkspace = () => {
@@ -590,8 +614,8 @@ function App() {
     setErrorMessage('');
   };
 
-  const handlePreview = () => {
-    const safeScript = source.javascript.replace(/<\/script/gi, '<\\/script');
+  function handlePreview(previewSource = source) {
+    const safeScript = previewSource.javascript.replace(/<\/script/gi, '<\\/script');
     const document = [
       '<!doctype html>',
       '<html lang="en">',
@@ -601,10 +625,10 @@ function App() {
       '<link rel="preconnect" href="https://fonts.googleapis.com">',
       '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
       '<link href="https://fonts.googleapis.com/css2?family=Maven+Pro:wght@400..900&display=swap" rel="stylesheet">',
-      '<style>' + source.css + '</style>',
+      '<style>' + previewSource.css + '</style>',
       '</head>',
       '<body>',
-      source.html || '<main style="font-family: Maven Pro, sans-serif; padding: 32px;">Add HTML to preview your interface.</main>',
+      previewSource.html || '<main style="font-family: Maven Pro, sans-serif; padding: 32px;">Add HTML to preview your interface.</main>',
       '<script>' + safeScript + '</script>',
       '</body>',
       '</html>'
@@ -615,7 +639,7 @@ function App() {
     setHasPreviewed(false);
     setGenerationState('idle');
     setErrorMessage('');
-  };
+  }
 
   const handleSubmit = async () => {
     if (!source.javascript.trim()) {
@@ -741,8 +765,10 @@ function App() {
       activeNode.classList.remove('is-source-active');
     });
     node.classList.add('is-source-active');
+    const range = { file: 'javascript', start, end, selectedAt: Date.now() };
     setActiveFile('javascript');
-    setPendingLineRange({ file: 'javascript', start, end, selectedAt: Date.now() });
+    setPendingLineRange(range);
+    if (activeFile === 'javascript') applySourceHighlight(range);
   };
 
   const updateDiagramZoom = (nextScale, originX, originY) => {
@@ -846,7 +872,6 @@ function App() {
             <i />
           </span>
           <span className="brand-name">Flow</span>
-          <span className="project-name">Untitled workspace</span>
         </div>
 
         <div className="topbar-actions">
@@ -861,6 +886,18 @@ function App() {
           <button className="button button-tertiary" type="button" onClick={clearWorkspace}>
             New workspace
           </button>
+          <button
+            className="info-button"
+            type="button"
+            aria-label="About Flow"
+            title="What is Flow?"
+            onClick={() => {
+              setIsConnectOpen(false);
+              setIsInfoOpen(true);
+            }}
+          >
+            i
+          </button>
         </div>
       </header>
 
@@ -868,15 +905,12 @@ function App() {
         <section className="glass-panel editor-panel resizable-card" style={{ height: cardHeights.editor }} aria-label="Code workspace" title="Drag the bottom handle to make this card taller or shorter">
           <header className="editor-heading">
             <div>
-              <span className="eyebrow">01 · Code</span>
-              <h1>Load a study.<br />Or paste your own.</h1>
-              <p>Bring in creative code from an open-source sketch, then inspect it file by file.</p>
+              <h1 className="card-title">1. Code</h1>
             </div>
 
             <div className="example-library" aria-label="Example code library">
               <div className="example-library-heading">
                 <span>Creative code library</span>
-                <small>Complex studies with branching systems</small>
               </div>
               <div className="example-picker">
                 <label className="sr-only" htmlFor="example-select">Choose example code</label>
@@ -896,10 +930,11 @@ function App() {
                   type="button"
                   onClick={() => loadExample(selectedExample)}
                 >
-                  Load example
+                  Load &amp; preview
                 </button>
               </div>
-              <p>{example.description}</p>
+              {example.description && <p className="example-description">{example.description}</p>}
+              <p className="own-code-note">You can also paste your own creative-coding example into the editor below.</p>
             </div>
           </header>
 
@@ -912,7 +947,6 @@ function App() {
                 aria-current={activeFile === file.id ? 'page' : undefined}
                 onClick={() => setActiveFile(file.id)}
               >
-                <span>{file.short}</span>
                 {file.label}
               </button>
             ))}
@@ -961,14 +995,11 @@ function App() {
         <div className="right-column" aria-label="Preview and flowchart workspace">
         <section className="glass-panel preview-panel resizable-card" style={{ height: cardHeights.preview }} aria-label="Live preview" title="Drag the bottom handle to make this card taller or shorter">
           <header className="card-toolbar">
-            <div className="step-heading">
-              <span>02 · Preview</span>
-              <strong>Launch the work</strong>
-            </div>
+            <h2 className="card-title">2. Preview</h2>
             <button
               className="button button-preview"
               type="button"
-              onClick={handlePreview}
+              onClick={() => handlePreview()}
               disabled={!hasSource || previewLoading}
             >
               <strong aria-hidden="true">▶</strong>
@@ -991,7 +1022,6 @@ function App() {
             ) : (
               <div className="empty-state compact">
                 <span className="preview-symbol" aria-hidden="true">↗</span>
-                <span className="empty-step">Step 2 · Preview</span>
                 <h2>See the code in motion.</h2>
                 <p>The preview loads scripts and animation systems in an isolated canvas.</p>
               </div>
@@ -1006,10 +1036,12 @@ function App() {
             )}
           </div>
 
-          <footer className="card-footer">
-            <span className={'status-dot ' + (previewLoading ? 'is-loading' : hasPreviewed ? 'is-ready' : '')} aria-hidden="true" />
-            <span>{previewLoading ? 'Preparing preview' : hasPreviewed ? 'Preview ready' : 'Waiting for code'}</span>
-          </footer>
+          {(previewLoading || !hasPreviewed) && (
+            <footer className="card-footer">
+              <span className={'status-dot ' + (previewLoading ? 'is-loading' : '')} aria-hidden="true" />
+              <span>{previewLoading ? 'Preparing preview' : 'Waiting for code'}</span>
+            </footer>
+          )}
           <button
             className="card-resize-handle"
             type="button"
@@ -1021,10 +1053,7 @@ function App() {
 
         <section className="glass-panel flowchart-panel resizable-card" style={{ height: cardHeights.flowchart }} aria-label="Generated flowchart" title="Drag the bottom handle to make this card taller or shorter">
           <header className="card-toolbar">
-            <div className="step-heading">
-              <span>04 · Flowchart</span>
-              <strong>Map the structure</strong>
-            </div>
+            <h2 className="card-title">3. Flowchart</h2>
             <button
               className="button button-flowchart"
               type="button"
@@ -1056,9 +1085,8 @@ function App() {
 
             {hasPreviewed && !aiAccess && !mermaidCode && (
               <div className="api-gate">
-                <span className="empty-step">03 · AI access</span>
+                <span className="empty-step">AI access required</span>
                 <h2>Connect before mapping.</h2>
-                <p>Use the demo password or your own API key. Prebuilt archive diagrams open instantly after this step.</p>
                 <button className="button button-soft" type="button" onClick={() => setIsConnectOpen(true)}>
                   Connect AI
                 </button>
@@ -1090,7 +1118,7 @@ function App() {
                   <button
                     className="diagram-reset"
                     type="button"
-                    onClick={() => setDiagramTransform({ x: 0, y: 0, scale: 1 })}
+                    onClick={fitDiagramToViewport}
                   >
                     Reset
                   </button>
@@ -1246,7 +1274,7 @@ function App() {
                   <button
                     className="button button-preview"
                     type="button"
-                    onClick={handlePreview}
+                    onClick={() => handlePreview()}
                     disabled={!hasSource}
                   >
                     <strong aria-hidden="true">▶</strong>
@@ -1396,6 +1424,40 @@ function App() {
                 </button>
               </form>
             )}
+          </section>
+        </div>
+      )}
+
+      {isInfoOpen && (
+        <div className="modal-backdrop">
+          <section
+            className="connect-modal info-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="info-title"
+          >
+            <header className="connect-modal-header">
+              <div>
+                <span className="eyebrow">About Flow</span>
+                <h2 id="info-title">See how creative code works.</h2>
+              </div>
+              <button
+                className="modal-close"
+                type="button"
+                aria-label="Close information"
+                onClick={() => setIsInfoOpen(false)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="info-content">
+              <p>Flow turns creative JavaScript into a live preview and a concise, clickable structure map.</p>
+              <ol>
+                <li>Load an example or paste your own HTML, CSS, and JavaScript.</li>
+                <li>Check the work in the live preview.</li>
+                <li>Generate the flowchart, then select any node to reveal its source lines.</li>
+              </ol>
+            </div>
           </section>
         </div>
       )}
