@@ -1452,9 +1452,9 @@ button:focus-visible,
 }
 
 .workspace {
-  grid-template-columns: minmax(520px, 1.12fr) minmax(400px, 0.88fr);
-  grid-template-rows: minmax(350px, auto) minmax(350px, auto);
-  align-items: start;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  grid-template-rows: minmax(360px, 46vh) minmax(720px, 88vh);
+  align-items: stretch;
   height: auto;
   min-height: calc(100dvh - 92px);
   overflow: visible;
@@ -1476,15 +1476,15 @@ button:focus-visible,
 }
 
 .resizable-card {
-  resize: both;
+  resize: vertical;
 }
 
 .editor-panel {
   grid-row: 1 / span 2;
   width: 100%;
-  height: calc(100dvh - 100px);
-  min-width: 500px;
-  min-height: 720px;
+  height: 100%;
+  min-width: 0;
+  min-height: 1090px;
 }
 
 .preview-panel,
@@ -1492,19 +1492,20 @@ button:focus-visible,
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   width: 100%;
-  min-width: 390px;
-  min-height: 340px;
-  height: calc((100dvh - 116px) / 2);
+  min-width: 0;
+  height: 100%;
 }
 
 .preview-panel {
   grid-column: 2;
   grid-row: 1;
+  min-height: 360px;
 }
 
 .flowchart-panel {
   grid-column: 2;
   grid-row: 2;
+  min-height: 720px;
 }
 
 .legacy-output-panel {
@@ -1812,6 +1813,23 @@ button:focus-visible,
   max-width: none !important;
 }
 
+.diagram-container .node:hover rect,
+.diagram-container .node:hover circle,
+.diagram-container .node:hover ellipse,
+.diagram-container .node:hover polygon,
+.diagram-container .node:focus rect,
+.diagram-container .node:focus circle,
+.diagram-container .node:focus ellipse,
+.diagram-container .node:focus polygon {
+  stroke: var(--accent-strong) !important;
+  stroke-width: 2px !important;
+  filter: drop-shadow(0 7px 10px rgba(74, 88, 79, 0.14));
+}
+
+.diagram-container .node:focus {
+  outline: none;
+}
+
 .diagram-controls {
   position: absolute;
   z-index: 8;
@@ -1881,23 +1899,38 @@ button:focus-visible,
 
 @media (max-width: 1120px) {
   .workspace {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
+    grid-template-columns: minmax(0, 1.04fr) minmax(0, 0.96fr);
+    grid-template-rows: minmax(340px, 46vh) minmax(680px, 88vh);
+    gap: 10px;
   }
 
   .editor-panel,
   .preview-panel,
   .flowchart-panel {
-    grid-column: 1;
-    grid-row: auto;
     width: 100%;
     min-width: 0;
     resize: vertical;
   }
 
-  .editor-panel { height: 760px; }
-  .preview-panel,
-  .flowchart-panel { height: 520px; }
+  .editor-panel {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    height: 100%;
+    min-height: 1030px;
+  }
+
+  .preview-panel {
+    grid-column: 2;
+    grid-row: 1;
+    height: 100%;
+  }
+
+  .flowchart-panel {
+    grid-column: 2;
+    grid-row: 2;
+    height: 100%;
+    min-height: 680px;
+  }
 }
 
 @media (max-width: 560px) {
@@ -1917,7 +1950,7 @@ button:focus-visible,
 
   .preview-panel,
   .flowchart-panel {
-    height: 500px;
+    height: 100%;
   }
 }
 

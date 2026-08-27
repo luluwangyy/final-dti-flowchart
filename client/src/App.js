@@ -460,6 +460,12 @@ function App() {
         const { svg } = await mermaid.render(id, mermaidCode);
         if (!cancelled && diagramRef.current) {
           diagramRef.current.innerHTML = svg;
+          diagramRef.current.querySelectorAll('.node').forEach((node) => {
+            const label = node.textContent && node.textContent.trim();
+            node.setAttribute('role', 'button');
+            node.setAttribute('tabindex', '0');
+            node.setAttribute('aria-label', label ? `Show source: ${label}` : 'Show source code');
+          });
         }
       } catch (error) {
         if (!cancelled) {
@@ -732,7 +738,7 @@ function App() {
   };
 
   const handleDiagramPointerDown = (event) => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || event.target.closest('.node')) return;
     diagramDragRef.current = {
       active: true,
       moved: false,
@@ -1016,7 +1022,17 @@ function App() {
                     className="diagram-canvas"
                     style={{ transform: `translate(${diagramTransform.x}px, ${diagramTransform.y}px) scale(${diagramTransform.scale})` }}
                   >
-                    <div className="diagram-container" ref={diagramRef} onClick={handleDiagramClick} />
+                    <div
+                      className="diagram-container"
+                      ref={diagramRef}
+                      onClick={handleDiagramClick}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          handleDiagramClick(event);
+                        }
+                      }}
+                    />
                   </div>
                 </div>
                 <div className="diagram-help">Drag to pan · Scroll to zoom · Select a node to reveal its code</div>
