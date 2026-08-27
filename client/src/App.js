@@ -373,11 +373,17 @@ function App() {
   const [pendingLineRange, setPendingLineRange] = useState(null);
   const [diagramTransform, setDiagramTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [isDiagramDragging, setIsDiagramDragging] = useState(false);
+  const [cardHeights, setCardHeights] = useState(() => (
+    window.innerWidth <= 1120
+      ? { editor: 1030, preview: 340, flowchart: 680 }
+      : { editor: 1120, preview: 400, flowchart: 708 }
+  ));
 
   const editorRef = useRef(null);
   const diagramRef = useRef(null);
   const diagramViewportRef = useRef(null);
   const diagramDragRef = useRef({ active: false, moved: false, x: 0, y: 0 });
+  const cardResizeRef = useRef(null);
   const renderId = useRef(0);
   const highlightedLinesRef = useRef([]);
   const activeMeta = FILES.find((file) => file.id === activeFile);
@@ -430,8 +436,8 @@ function App() {
       flowchart: {
         curve: 'basis',
         htmlLabels: false,
-        nodeSpacing: 42,
-        rankSpacing: 62,
+        nodeSpacing: 24,
+        rankSpacing: 94,
         useMaxWidth: true
       }
     });
@@ -462,9 +468,14 @@ function App() {
           diagramRef.current.innerHTML = svg;
           diagramRef.current.querySelectorAll('.node').forEach((node) => {
             const label = node.textContent && node.textContent.trim();
+            const sourceRange = label && label.match(/#(\d+)(?:-(\d+))?/);
             node.setAttribute('role', 'button');
             node.setAttribute('tabindex', '0');
             node.setAttribute('aria-label', label ? `Show source: ${label}` : 'Show source code');
+            if (sourceRange) {
+              node.dataset.sourceStart = sourceRange[1];
+              node.dataset.sourceEnd = sourceRange[2] || sourceRange[1];
+            }
           });
         }
       } catch (error) {
@@ -491,6 +502,10 @@ function App() {
   useEffect(() => {
     setDiagramTransform({ x: 0, y: 0, scale: 1 });
   }, [mermaidCode]);
+
+  useEffect(() => () => {
+    if (cardResizeRef.current) cardResizeRef.current.finishResize();
+  }, []);
 
   useEffect(() => {
     if (!pendingLineRange || activeFile !== pendingLineRange.file) return undefined;
@@ -526,7 +541,20 @@ function App() {
     return () => window.clearTimeout(revealTimer);
   }, [activeFile, pendingLineRange]);
 
+  const clearCodeHighlights = () => {
+    const editor = editorRef.current;
+    if (editor) {
+      const document = editor.getDoc();
+      highlightedLinesRef.current.forEach((line) => {
+        document.removeLineClass(line, 'background', 'highlighted-code-line');
+      });
+    }
+    highlightedLinesRef.current = [];
+    setPendingLineRange(null);
+  };
+
   const updateActiveFile = (value) => {
+    clearCodeHighlights();
     setSource((current) => ({ ...current, [activeFile]: value }));
     setHasPreviewed(false);
     setPreviewLoading(false);
@@ -538,6 +566,7 @@ function App() {
   };
 
   const loadExample = (index) => {
+    clearCodeHighlights();
     setSource(EXAMPLES[index].source);
     setSelectedExample(index);
     setActiveFile('javascript');
@@ -550,6 +579,7 @@ function App() {
   };
 
   const clearWorkspace = () => {
+    clearCodeHighlights();
     setSource(EMPTY_SOURCE);
     setActiveFile('javascript');
     setMermaidCode('');
@@ -701,10 +731,16 @@ function App() {
     const node = event.target.closest('.node');
     const text = node && node.textContent;
     const match = text && text.match(/#(\d+)(?:-(\d+))?/);
-    if (!match) return;
+    const sourceStart = node && node.dataset.sourceStart;
+    const sourceEnd = node && node.dataset.sourceEnd;
+    if (!sourceStart && !match) return;
 
-    const start = Math.max(Number(match[1]) - 1, 0);
-    const end = Math.max(Number(match[2] || match[1]) - 1, start);
+    const start = Math.max(Number(sourceStart || match[1]) - 1, 0);
+    const end = Math.max(Number(sourceEnd || match[2] || match[1]) - 1, start);
+    diagramRef.current.querySelectorAll('.node.is-source-active').forEach((activeNode) => {
+      activeNode.classList.remove('is-source-active');
+    });
+    node.classList.add('is-source-active');
     setActiveFile('javascript');
     setPendingLineRange({ file: 'javascript', start, end, selectedAt: Date.now() });
   };
@@ -768,6 +804,38 @@ function App() {
     }
   };
 
+  const beginCardResize = (event, card, minHeight) => {
+    event.preventDefault();
+    const startHeight = cardHeights[card];
+    const startY = event.pageY;
+
+    const continueResize = (moveEvent) => {
+      const height = Math.max(minHeight, startHeight + moveEvent.pageY - startY);
+      setCardHeights((current) => ({ ...current, [card]: Math.round(height) }));
+    };
+
+    const finishResize = () => {
+      window.removeEventListener('mousemove', continueResize);
+      window.removeEventListener('mouseup', finishResize);
+      cardResizeRef.current = null;
+      window.setTimeout(() => editorRef.current && editorRef.current.refresh(), 0);
+    };
+
+    cardResizeRef.current = { card, finishResize };
+    window.addEventListener('mousemove', continueResize);
+    window.addEventListener('mouseup', finishResize);
+  };
+
+  const resizeCardWithKeyboard = (event, card, minHeight) => {
+    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+    event.preventDefault();
+    const change = event.key === 'ArrowUp' ? -32 : 32;
+    setCardHeights((current) => ({
+      ...current,
+      [card]: Math.max(minHeight, current[card] + change)
+    }));
+  };
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -797,7 +865,7 @@ function App() {
       </header>
 
       <main className="workspace">
-        <section className="glass-panel editor-panel resizable-card" aria-label="Code workspace" title="Drag the lower-right corner to resize this card">
+        <section className="glass-panel editor-panel resizable-card" style={{ height: cardHeights.editor }} aria-label="Code workspace" title="Drag the bottom handle to make this card taller or shorter">
           <header className="editor-heading">
             <div>
               <span className="eyebrow">01 · Code</span>
@@ -872,14 +940,26 @@ function App() {
             <span>
               <strong>Step 1</strong>
               Load an example or paste your own code
-              <small>{lineCount} {lineCount === 1 ? 'line' : 'lines'} · {activeMeta.label}</small>
+              <small>
+                {lineCount} {lineCount === 1 ? 'line' : 'lines'} · {activeMeta.label}
+                {pendingLineRange && activeFile === 'javascript'
+                  ? ` · Showing ${pendingLineRange.start + 1}${pendingLineRange.end > pendingLineRange.start ? `–${pendingLineRange.end + 1}` : ''}`
+                  : ''}
+              </small>
             </span>
             <span className="resize-hint">Drag corner to resize</span>
           </footer>
-          <i className="resize-corner" aria-hidden="true" />
+          <button
+            className="card-resize-handle"
+            type="button"
+            aria-label="Resize code card vertically"
+            onMouseDown={(event) => beginCardResize(event, 'editor', 560)}
+            onKeyDown={(event) => resizeCardWithKeyboard(event, 'editor', 560)}
+          ><span aria-hidden="true" /></button>
         </section>
 
-        <section className="glass-panel preview-panel resizable-card" aria-label="Live preview" title="Drag the lower-right corner to resize this card">
+        <div className="right-column" aria-label="Preview and flowchart workspace">
+        <section className="glass-panel preview-panel resizable-card" style={{ height: cardHeights.preview }} aria-label="Live preview" title="Drag the bottom handle to make this card taller or shorter">
           <header className="card-toolbar">
             <div className="step-heading">
               <span>02 · Preview</span>
@@ -930,10 +1010,16 @@ function App() {
             <span className={'status-dot ' + (previewLoading ? 'is-loading' : hasPreviewed ? 'is-ready' : '')} aria-hidden="true" />
             <span>{previewLoading ? 'Preparing preview' : hasPreviewed ? 'Preview ready' : 'Waiting for code'}</span>
           </footer>
-          <i className="resize-corner" aria-hidden="true" />
+          <button
+            className="card-resize-handle"
+            type="button"
+            aria-label="Resize preview card vertically"
+            onMouseDown={(event) => beginCardResize(event, 'preview', 240)}
+            onKeyDown={(event) => resizeCardWithKeyboard(event, 'preview', 240)}
+          ><span aria-hidden="true" /></button>
         </section>
 
-        <section className="glass-panel flowchart-panel resizable-card" aria-label="Generated flowchart" title="Drag the lower-right corner to resize this card">
+        <section className="glass-panel flowchart-panel resizable-card" style={{ height: cardHeights.flowchart }} aria-label="Generated flowchart" title="Drag the bottom handle to make this card taller or shorter">
           <header className="card-toolbar">
             <div className="step-heading">
               <span>04 · Flowchart</span>
@@ -1050,8 +1136,15 @@ function App() {
               <button className="button button-tertiary" type="button" onClick={handleSubmit}>Try again</button>
             )}
           </footer>
-          <i className="resize-corner" aria-hidden="true" />
+          <button
+            className="card-resize-handle"
+            type="button"
+            aria-label="Resize flowchart card vertically"
+            onMouseDown={(event) => beginCardResize(event, 'flowchart', 420)}
+            onKeyDown={(event) => resizeCardWithKeyboard(event, 'flowchart', 420)}
+          ><span aria-hidden="true" /></button>
         </section>
+        </div>
 
         <section className="glass-panel output-panel legacy-output-panel" aria-hidden="true">
           <header className="output-toolbar">

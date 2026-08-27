@@ -3,14 +3,14 @@ export const CREATIVE_EXAMPLES = [
     name: 'Particle terrain',
     category: 'Three.js · generative 3D',
     description: 'From the archived project: a deforming point landscape with geometry construction, nested loops, easing, rendering, and resize systems.',
-    flowchart: `flowchart TD
+    flowchart: `flowchart TB
   Boot["Bootstrap animation #127-129"]
-  Boot --> SceneSetup["Create renderer scene and camera #3-18"]
+  Boot --> SceneSetup["Create rendering foundation #3-18"]
   SceneSetup --> Renderer["Configure WebGL renderer #5-9"]
-  SceneSetup --> Scene["Create foggy scene #11-12"]
-  SceneSetup --> Camera["Position perspective camera #14-15"]
-  SceneSetup --> Container["Attach terrain container #17-18"]
-  Boot --> Terrain["createTerrain #69-81"]
+  Renderer --> Scene["Create foggy scene #11-12"]
+  Scene --> Camera["Position perspective camera #14-15"]
+  Camera --> Container["Attach terrain container #17-18"]
+  Container --> Terrain["createTerrain #69-81"]
   Terrain --> Material["Configure point material #70-77"]
   Material --> Texture["makeDotTexture #27-41"]
   Texture --> Gradient["Paint radial sprite #28-37"]
@@ -21,23 +21,27 @@ export const CREATIVE_EXAMPLES = [
   Terrain --> Shadow["buildShadowPlane #56-67"]
   Shadow --> ShadowVertices["Subdivide and measure plane #57-62"]
   ShadowVertices --> ShadowMesh["Create and attach shadow mesh #63-66"]
-  Boot --> FrameLoop["Start recursive render loop #93-100"]
+  Ratios --> GeometryReady["Build point and shadow objects #78-80"]
+  ShadowMesh --> GeometryReady
+  GeometryReady --> MotionSystems["Start terrain and camera tweens #110-125"]
+  MotionSystems --> MotionTween["Animate crater parameters #110-117"]
+  MotionSystems --> CameraTween["Animate camera position #119-125"]
+  MotionSystems --> FrameLoop["Start recursive render loop #93-100"]
   FrameLoop --> Schedule["Schedule next frame #94"]
-  FrameLoop --> PointPass["Deform point geometry #95"]
-  FrameLoop --> ShadowPass["Deform shadow geometry #96"]
+  FrameLoop --> GeometryPass["Run both deformation passes #95-96"]
+  GeometryPass --> PointPass["Deform point geometry #95"]
+  GeometryPass --> ShadowPass["Deform shadow geometry #96"]
   PointPass --> Deformer["deformGeometry #83-91"]
   ShadowPass --> Deformer
   Deformer --> SurfaceMath["Combine crater ripple and falloff #84-89"]
   SurfaceMath --> VertexUpload["Flag vertices for GPU update #90"]
   FrameLoop --> ViewTransform["Rotate aim and render #97-99"]
-  CameraTween["Animate camera position #119-125"] --> ViewTransform
-  MotionTween["Animate crater parameters #110-117"] --> SurfaceMath
-  Boot --> MotionTween
-  Boot --> CameraTween
-  ResizeEvent["Listen for viewport resize #127"] --> Resize["onResize #102-108"]
+  CameraTween --> ViewTransform
+  MotionTween --> SurfaceMath
+  FrameLoop --> ResizeEvent["Listen for viewport resize #127"]
+  ResizeEvent --> Resize["onResize #102-108"]
   Resize --> Dimensions["Read new viewport size #103-104"]
-  Dimensions --> Projection["Refresh camera and renderer #105-107"]
-  Boot --> ResizeEvent`,
+  Dimensions --> Projection["Refresh camera and renderer #105-107"]`,
     source: {
       javascript: `console.clear();
 
@@ -192,19 +196,19 @@ aside strong { font-size: 18px; font-weight: 580; }`
     name: 'Kinetic LILI grid',
     category: 'Anime.js · sequencing',
     description: 'From the archived project: a letter system built from indexed cells, target partitioning, parallel timelines, stagger logic, and reversible interaction.',
-    flowchart: `flowchart TD
+    flowchart: `flowchart TB
   Boot["Bootstrap grid and interactions #84-88"]
   Boot --> Coordinates["setGridCoordinates #27-32"]
   Coordinates --> CellAddress["Assign row and column data #28-30"]
-  Boot --> Word["buildWordIndices #12-17"]
+  CellAddress --> Word["buildWordIndices #12-17"]
   Word --> Offset["offset letter templates #8-10"]
-  Offset --> Word
-  Word --> Partition["splitTargets #19-25"]
+  Offset --> Partition["splitTargets #19-25"]
   Partition --> Membership["Create word membership set #20"]
   Membership --> Letters["Resolve letter cells #22"]
   Membership --> Background["Resolve background cells #23"]
-  Letters --> Timeline["buildTimeline #34-69"]
-  Background --> Timeline
+  Letters --> TargetsReady["Prepare animation targets #85"]
+  Background --> TargetsReady
+  TargetsReady --> Timeline["buildTimeline #34-69"]
   Timeline --> TimelineConfig["Configure alternate looping timeline #35-39"]
   TimelineConfig --> LetterPhase["Transform letter cells #41-49"]
   TimelineConfig --> FieldPhase["Transform field cells in parallel #51-58"]
@@ -214,16 +218,15 @@ aside strong { font-size: 18px; font-weight: 580; }`
   LetterPhase --> ColorPhase["Resolve letters to accent color #60-66"]
   FieldPhase --> ColorPhase
   ColorPhase --> ReturnTimeline["Return timeline controller #68"]
-  Boot --> PointerListener["Listen for pointer movement #87"]
+  ReturnTimeline --> RuntimeListeners["Attach pointer and click listeners #87-88"]
+  RuntimeListeners --> PointerListener["Listen for pointer movement #87"]
   PointerListener --> Pointer["handlePointerMove #71-76"]
   Pointer --> NormalizePointer["Normalize pointer position #72-73"]
   NormalizePointer --> Tilt["Write 3D tilt CSS variables #74-75"]
-  Boot --> ClickListener["Listen for grid click #88"]
+  RuntimeListeners --> ClickListener["Listen for grid click #88"]
   ClickListener --> Reverse["reverseSequence #78-82"]
-  Reverse --> FlipDirection["Invert animation direction #79"]
-  FlipDirection --> DirectionRead
-  Reverse --> Playback["Reverse and resume timeline #80-81"]
-  Playback --> Timeline`,
+  Reverse --> FlipDirection["Invert direction used by field phase #79"]
+  Reverse --> Playback["Reverse and resume timeline #80-81"]`,
     source: {
       javascript: `const columns = 20;
 const rows = 6;
