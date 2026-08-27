@@ -166,7 +166,9 @@ Return only raw Mermaid syntax and follow every rule:
 - Show conditions and loop branches when they materially change execution.
 - Use subgraphs when the code has parallel systems. Do not force independent systems into one linear chain.
 - Every node ID must be unique and defined only once.
-- Keep the chart to at most 22 nodes and prioritize structural relationships over implementation trivia.`;
+- Prefer 8 to 14 nodes and never exceed 14 nodes.
+- Combine low-level implementation steps into concise system-level nodes.
+- Prioritize accurate dependencies over exhaustive detail.`;
 
       const completion = await openai.chat.completions.create({
           model: "gpt-4",

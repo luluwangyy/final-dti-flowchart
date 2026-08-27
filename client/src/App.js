@@ -436,8 +436,8 @@ function App() {
       flowchart: {
         curve: 'basis',
         htmlLabels: false,
-        nodeSpacing: 24,
-        rankSpacing: 94,
+        nodeSpacing: 28,
+        rankSpacing: 72,
         useMaxWidth: true
       }
     });
