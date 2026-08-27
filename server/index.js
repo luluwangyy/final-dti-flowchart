@@ -150,115 +150,23 @@ app.post('/generate-flowchart', async (req, res) => {
   try {
       const openai = new OpenAI({ apiKey: access.apiKey });
 
-      const prompt = `Create a flowchart in Mermaid syntax that includes the structure of the following code :
+      const prompt = `Create a concise Mermaid flowchart for this JavaScript:
 
-      JavaScript:
-      ${code}
- 
-This is the sample output:  graph LR
-    Root[Structure of Code]
+${code}
 
-    Root --> A[1.Three.js Setup #6-38]
-    Root --> B[2.Create Dot Geometry #46-80]
-    Root --> C[3.Animate Dot Geometry #82-121]
-    Root --> D[4.Handle Window Resize #125-133]
-
-    A --> E[Set size #10]
-    A --> F[Create a scene #13-14]
-    A --> G[Setup Camera #16-26]
-    G --> H[Position Camera #17-26]
-    A --> I[Add 3D Object Container #29-30]
-    A --> J[Add a texture loader #37-38]
-
-    B --> K[Setup vectors #53-69]
-    B --> L[Setup material properties #70-80]
-
-    %% Add Clicks
-    click A callback "Click for lines 6-38"
-    click B callback "Click for lines 46-80"
-    click C callback "Click for lines 82-121"
-    click D callback "Click for lines 125-133"
-    click E callback "Click for lines 10"
-    click F callback "Click for lines 13-14"
-    click G callback "Click for lines 16-26"
-    click H callback "Click for lines 17-26"
-    click I callback "Click for lines 29-30"
-    click J callback "Click for lines 37-38"
-    click K callback "Click for lines 53-69"
-    click L callback "Click for lines 70-80"
-
-    %% Styles
-    style Root fill:#e5e5e5
-    style A fill:#c6b5ff
-    style B fill:#c6b5ff
-    style C fill:#c6b5ff
-    style D fill:#c6b5ff
-    style E fill:#ffd966
-    style F fill:#ffd966
-    style G fill:#ffd966
-    style H fill:#97d077
-    style I fill:#ffd966
-    style J fill:#ffd966
-    style K fill:#ffd966
-    style L fill:#ffd966
-
-     This is another sample output:
-     graph LR
-    Root[Structure of Code]
-
-    Root --> A[1.Initialize Anime Timeline #2-5]
-    Root --> B[2.Define Letters and Word LILI #8-15]
-    Root --> C[3.Get LILI and Background Circles #18-23]
-    Root --> D[4.Add Animations to LILI Circles #26-33]
-    Root --> E[5.Add Animations to Background Circles #36-42]
-    Root --> F[6.Change Background Color of LILI Circles #45-48]
-
-    A --> G[Set Easing, Direction, and Loop #2-5]
-    B --> H[Define L and I #9-10]
-    B --> I[Define LILI #13-15]
-    C --> J[Get LILI Circles #18-19]
-    C --> K[Get Background Circles #22-23]
-    D --> L[Set Targets, Styles, and Properties #26-33]
-    E --> M[Set Targets, Styles, and Properties #36-42]
-    F --> N[Set Targets, Styles, and Properties #45-48]
-
-    %% Add Clicks
-    click A callback "Click for lines 2-5"
-    click B callback "Click for lines 8-15"
-    click C callback "Click for lines 18-23"
-    click D callback "Click for lines 26-33"
-    click E callback "Click for lines 36-42"
-    click F callback "Click for lines 45-48"
-    click G callback "Click for lines 2-5"
-    click H callback "Click for lines 9-10"
-    click I callback "Click for lines 13-15"
-    click J callback "Click for lines 18-19"
-    click K callback "Click for lines 22-23"
-    click L callback "Click for lines 26-33"
-    click M callback "Click for lines 36-42"
-    click N callback "Click for lines 45-48"
-
-    %% Styles
-    style Root fill:#e5e5e5
-    style A fill:#c6b5ff
-    style B fill:#c6b5ff
-    style C fill:#c6b5ff
-    style D fill:#c6b5ff
-    style E fill:#c6b5ff
-    style F fill:#c6b5ff
-    style G fill:#ffd966
-    style H fill:#ffd966
-    style I fill:#ffd966
-    style J fill:#ffd966
-    style K fill:#ffd966
-    style L fill:#ffd966
-    style M fill:#ffd966
-    style N fill:#ffd966
-
-
-      Only output the raw Mermaid code.
-      DO NOT OUTPUT ANY EXTRA STUFF INCLUDING NOT OUTPUTTING any extra punctuations！！！！！
-      `;
+Return only raw Mermaid syntax and follow every rule:
+- Begin with flowchart TD.
+- Use Root["Code structure"] as the root node.
+- Use simple IDs such as A, B, C.
+- Put every label inside double quotes.
+- Every non-root label must end with its exact source marker, such as #6 or #6-12.
+- Labels may contain only words, spaces, numbers, parentheses, hyphens, colons, and the source marker.
+- Do not output click, callback, style, class, classDef, HTML, Markdown fences, or comments.
+- Map real dependencies: connect setup, data construction, animation, rendering, interaction, and resize systems to the functions they call or affect.
+- Show conditions and loop branches when they materially change execution.
+- Use subgraphs when the code has parallel systems. Do not force independent systems into one linear chain.
+- Every node ID must be unique and defined only once.
+- Keep the chart to at most 22 nodes and prioritize structural relationships over implementation trivia.`;
 
       const completion = await openai.chat.completions.create({
           model: "gpt-4",
@@ -272,7 +180,7 @@ This is the sample output:  graph LR
                   content: prompt
               }
           ],
-          temperature: 0.7,
+          temperature: 0.2,
       });
 
       const mermaidCode = completion.choices[0].message.content;

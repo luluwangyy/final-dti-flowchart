@@ -8,8 +8,9 @@ import 'codemirror/mode/javascript/javascript';
 import 'codemirror/mode/htmlmixed/htmlmixed';
 import 'codemirror/mode/css/css';
 import './styles.css';
+import { CREATIVE_EXAMPLES } from './creativeExamples';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5050';
+const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5050';
 
 const EMPTY_SOURCE = {
   javascript: '',
@@ -17,7 +18,7 @@ const EMPTY_SOURCE = {
   css: ''
 };
 
-const EXAMPLES = [
+export const LEGACY_UI_EXAMPLES = [
   {
     name: 'Particle field',
     category: 'Canvas animation',
@@ -77,7 +78,7 @@ const EXAMPLES = [
         'body {',
         '  margin: 0;',
         '  overflow: hidden;',
-        '  font-family: -apple-system, BlinkMacSystemFont, sans-serif;',
+        '  font-family: "Maven Pro", sans-serif;',
         '  background: #f2f2ef;',
         '  color: #1d1d1f;',
         '}',
@@ -128,7 +129,7 @@ const EXAMPLES = [
         '</main>'
       ].join('\n'),
       css: [
-        'body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #ececea; font-family: -apple-system, sans-serif; color: #1d1d1f; }',
+        'body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #ececea; font-family: "Maven Pro", sans-serif; color: #1d1d1f; }',
         '.focus-list { width: min(440px, 88vw); padding: 28px; border: 1px solid rgba(0,0,0,.06); border-radius: 22px; background: rgba(255,255,255,.72); box-shadow: 0 24px 60px rgba(0,0,0,.08); }',
         'header { display: flex; justify-content: space-between; margin-bottom: 24px; color: #777; }',
         'header strong { color: #1d1d1f; }',
@@ -177,7 +178,7 @@ const EXAMPLES = [
         '</main>'
       ].join('\n'),
       css: [
-        'body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: sans-serif; background: #efefed; }',
+        'body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: "Maven Pro", sans-serif; background: #efefed; }',
         '.theme-preview { width: min(420px, 84vw); padding: 36px; border-radius: 24px; background: #fff; color: #1d1d1f; transition: .25s ease; }',
         '.theme-preview[data-active-theme="warm"] { background: #f3e8d8; color: #3e3024; }',
         '.theme-preview[data-active-theme="dark"] { background: #252628; color: #f5f5f2; }',
@@ -236,7 +237,7 @@ const EXAMPLES = [
         '</main>'
       ].join('\n'),
       css: [
-        'body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #e9edf3; font-family: sans-serif; color: #1d1d1f; }',
+        'body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #e9edf3; font-family: "Maven Pro", sans-serif; color: #1d1d1f; }',
         '.signup-card { width: min(460px, 86vw); padding: 38px; border-radius: 24px; background: rgba(255,255,255,.82); box-shadow: 0 30px 70px rgba(32,44,62,.12); }',
         'p, label, small { color: #707077; font-size: 12px; }',
         'h1 { margin: 10px 0 30px; letter-spacing: -.04em; }',
@@ -251,6 +252,8 @@ const EXAMPLES = [
     }
   }
 ];
+
+const EXAMPLES = CREATIVE_EXAMPLES;
 
 const FILES = [
   { id: 'javascript', label: 'JavaScript', short: 'JS', mode: 'javascript' },
@@ -275,17 +278,79 @@ const STATUS = {
     tone: 'success'
   },
   error: {
-    label: 'Connection needed',
-    detail: 'The AI service is not connected yet. Your code is still here.',
+    label: 'Couldn’t finish this chart',
+    detail: 'Your code is still here. Review the message and try again.',
     tone: 'error'
   }
 };
 
 function cleanMermaidSyntax(value = '') {
-  return value
+  const cleaned = value
     .replace(/^\x60{3}(?:mermaid)?\s*/i, '')
     .replace(/\s*\x60{3}$/, '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
     .trim();
+  const lines = cleaned.split('\n');
+  const diagramStart = lines.findIndex((line) => /^\s*(?:flowchart|graph)\s+(?:TD|TB|BT|RL|LR)\b/i.test(line));
+
+  return (diagramStart >= 0 ? lines.slice(diagramStart) : lines)
+    .filter((line) => !/^\s*(?:click|style|classDef|class)\s+/i.test(line))
+    .join('\n')
+    .trim();
+}
+
+function buildFallbackMermaid(code = '') {
+  const lines = code.split('\n');
+  const declarations = [];
+
+  lines.forEach((line, index) => {
+    const match = line.match(/^\s*(?:async\s+)?function\s+([A-Za-z_$][\w$]*)|^\s*(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\(/);
+    const name = match && (match[1] || match[2]);
+    if (name) declarations.push({ name, start: index + 1 });
+  });
+
+  const sections = declarations.length
+    ? declarations.map((item, index) => ({
+        label: item.name.replace(/[^A-Za-z0-9_$ -]/g, ''),
+        start: item.start,
+        end: index < declarations.length - 1 ? declarations[index + 1].start - 1 : lines.length
+      }))
+    : Array.from({ length: Math.ceil(lines.length / 6) }, (_, index) => ({
+        label: `Code section ${index + 1}`,
+        start: index * 6 + 1,
+        end: Math.min((index + 1) * 6, lines.length)
+      }));
+
+  const visibleSections = sections.slice(0, 18);
+  const nodeLines = visibleSections.map((section, index) => {
+      const range = section.start === section.end ? section.start : `${section.start}-${section.end}`;
+      return `  S${index + 1}["${section.label} #${range}"]`;
+    });
+
+  if (!declarations.length) {
+    return ['flowchart TD', '  Root["Code structure"]', ...nodeLines.map((node, index) => `${node}\n  Root --> S${index + 1}`)].join('\n');
+  }
+
+  const edges = [];
+  const incoming = new Set();
+  visibleSections.forEach((section, sourceIndex) => {
+    const body = lines.slice(section.start - 1, section.end).join('\n');
+    visibleSections.forEach((target, targetIndex) => {
+      if (sourceIndex === targetIndex) return;
+      const escapedName = target.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (new RegExp(`\\b${escapedName}\\s*\\(`).test(body)) {
+        edges.push(`  S${sourceIndex + 1} --> S${targetIndex + 1}`);
+        incoming.add(targetIndex);
+      }
+    });
+  });
+
+  const entryEdges = visibleSections
+    .map((section, index) => ({ section, index }))
+    .filter(({ index }) => !incoming.has(index))
+    .map(({ index }) => `  Root --> S${index + 1}`);
+
+  return ['flowchart TD', '  Root["Code structure"]', ...nodeLines, ...entryEdges, ...edges].join('\n');
 }
 
 function App() {
@@ -304,10 +369,12 @@ function App() {
   const [connectionState, setConnectionState] = useState('disconnected');
   const [connectionMessage, setConnectionMessage] = useState('');
   const [aiAccess, setAiAccess] = useState(null);
+  const [pendingLineRange, setPendingLineRange] = useState(null);
 
   const editorRef = useRef(null);
   const diagramRef = useRef(null);
   const renderId = useRef(0);
+  const highlightedLinesRef = useRef([]);
   const activeMeta = FILES.find((file) => file.id === activeFile);
   const activeValue = source[activeFile];
   const lineCount = useMemo(
@@ -345,11 +412,11 @@ function App() {
         lineColor: '#8a8a8f',
         secondaryColor: '#f1f1ef',
         tertiaryColor: '#fafaf8',
-        fontFamily: '-apple-system, BlinkMacSystemFont, SF Pro Text, sans-serif'
+        fontFamily: 'Maven Pro, sans-serif'
       },
       flowchart: {
         curve: 'basis',
-        htmlLabels: true,
+        htmlLabels: false,
         nodeSpacing: 42,
         rankSpacing: 62,
         useMaxWidth: true
@@ -383,8 +450,15 @@ function App() {
         }
       } catch (error) {
         if (!cancelled) {
-          setGenerationState('error');
-          setErrorMessage('The returned diagram could not be rendered. Try generating it again.');
+          const fallback = buildFallbackMermaid(source.javascript);
+          if (mermaidCode !== fallback) {
+            setMermaidCode(fallback);
+            setGenerationState('completed');
+            setErrorMessage('');
+          } else {
+            setGenerationState('error');
+            setErrorMessage('The diagram format could not be repaired. Try generating it again.');
+          }
         }
       }
     }
@@ -393,7 +467,41 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [mermaidCode]);
+  }, [mermaidCode, source.javascript]);
+
+  useEffect(() => {
+    if (!pendingLineRange || activeFile !== pendingLineRange.file) return undefined;
+
+    const revealTimer = window.setTimeout(() => {
+      const editor = editorRef.current;
+      if (!editor) return;
+
+      const document = editor.getDoc();
+      const lastLine = Math.max(document.lineCount() - 1, 0);
+      const safeStart = Math.min(pendingLineRange.start, lastLine);
+      const safeEnd = Math.min(pendingLineRange.end, lastLine);
+
+      highlightedLinesRef.current.forEach((line) => {
+        document.removeLineClass(line, 'background', 'highlighted-code-line');
+      });
+
+      const highlightedLines = [];
+      editor.operation(() => {
+        for (let line = safeStart; line <= safeEnd; line += 1) {
+          document.addLineClass(line, 'background', 'highlighted-code-line');
+          highlightedLines.push(line);
+        }
+        document.setCursor({ line: safeStart, ch: 0 });
+      });
+
+      highlightedLinesRef.current = highlightedLines;
+      editor.refresh();
+      editor.scrollTo(null, Math.max(editor.heightAtLine(safeStart, 'local') - 8, 0));
+      editor.focus();
+    }, 0);
+
+    return () => window.clearTimeout(revealTimer);
+  }, [activeFile, pendingLineRange]);
 
   const updateActiveFile = (value) => {
     setSource((current) => ({ ...current, [activeFile]: value }));
@@ -435,10 +543,13 @@ function App() {
       '<head>',
       '<meta charset="utf-8">',
       '<meta name="viewport" content="width=device-width, initial-scale=1">',
+      '<link rel="preconnect" href="https://fonts.googleapis.com">',
+      '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
+      '<link href="https://fonts.googleapis.com/css2?family=Maven+Pro:wght@400..900&display=swap" rel="stylesheet">',
       '<style>' + source.css + '</style>',
       '</head>',
       '<body>',
-      source.html || '<main style="font-family: sans-serif; padding: 32px;">Add HTML to preview your interface.</main>',
+      source.html || '<main style="font-family: Maven Pro, sans-serif; padding: 32px;">Add HTML to preview your interface.</main>',
       '<script>' + safeScript + '</script>',
       '</body>',
       '</html>'
@@ -559,23 +670,7 @@ function App() {
     const start = Math.max(Number(match[1]) - 1, 0);
     const end = Math.max(Number(match[2] || match[1]) - 1, start);
     setActiveFile('javascript');
-
-    window.setTimeout(() => {
-      const editor = editorRef.current;
-      if (!editor) return;
-      const document = editor.getDoc();
-      const lastLine = Math.max(document.lineCount() - 1, 0);
-      const safeStart = Math.min(start, lastLine);
-      const safeEnd = Math.min(end, lastLine);
-
-      document.getAllMarks().forEach((mark) => mark.clear());
-      document.markText(
-        { line: safeStart, ch: 0 },
-        { line: safeEnd, ch: document.getLine(safeEnd).length },
-        { className: 'highlighted-line' }
-      );
-      editor.scrollIntoView({ line: safeStart, ch: 0 }, 120);
-    }, 80);
+    setPendingLineRange({ file: 'javascript', start, end, selectedAt: Date.now() });
   };
 
   return (
