@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import mermaid from 'mermaid';
 import { Controlled as CodeMirror } from 'react-codemirror2';
@@ -264,8 +264,8 @@ const FILES = [
 
 const STATUS = {
   idle: {
-    label: 'Preview comes first',
-    detail: 'Load an example or add your own code, then run the live preview.',
+    label: '',
+    detail: '',
     tone: 'neutral'
   },
   generating: {
@@ -390,10 +390,6 @@ function App() {
   const highlightedLinesRef = useRef([]);
   const activeMeta = FILES.find((file) => file.id === activeFile);
   const activeValue = source[activeFile];
-  const lineCount = useMemo(
-    () => (activeValue ? activeValue.split('\n').length : 1),
-    [activeValue]
-  );
   const hasSource = Object.values(source).some((value) => value.trim());
   const currentStatus = previewLoading
     ? {
@@ -934,7 +930,6 @@ function App() {
                   Load &amp; preview
                 </button>
               </div>
-              {example.description && <p className="example-description">{example.description}</p>}
               <p className="own-code-note">You can also paste your own creative-coding example into the editor below.</p>
             </div>
           </header>
@@ -971,19 +966,6 @@ function App() {
             />
           </div>
 
-          <footer className="editor-footer">
-            <span>
-              <strong>Step 1</strong>
-              Load an example or paste your own code
-              <small>
-                {lineCount} {lineCount === 1 ? 'line' : 'lines'} · {activeMeta.label}
-                {pendingLineRange && activeFile === 'javascript'
-                  ? ` · Showing ${pendingLineRange.start + 1}${pendingLineRange.end > pendingLineRange.start ? `–${pendingLineRange.end + 1}` : ''}`
-                  : ''}
-              </small>
-            </span>
-            <span className="resize-hint">Drag corner to resize</span>
-          </footer>
           <button
             className="card-resize-handle"
             type="button"
@@ -1024,7 +1006,6 @@ function App() {
               <div className="empty-state compact">
                 <span className="preview-symbol" aria-hidden="true">↗</span>
                 <h2>See the code in motion.</h2>
-                <p>The preview loads scripts and animation systems in an isolated canvas.</p>
               </div>
             )}
 
@@ -1032,17 +1013,9 @@ function App() {
               <div className="preview-loading" role="status" aria-live="polite">
                 <span className="motion-symbol" aria-hidden="true"><i /><i /><i /></span>
                 <strong>Launching the animation</strong>
-                <p>Loading libraries, geometry, and the first frame…</p>
               </div>
             )}
           </div>
-
-          {(previewLoading || !hasPreviewed) && (
-            <footer className="card-footer">
-              <span className={'status-dot ' + (previewLoading ? 'is-loading' : '')} aria-hidden="true" />
-              <span>{previewLoading ? 'Preparing preview' : 'Waiting for code'}</span>
-            </footer>
-          )}
           <button
             className="card-resize-handle"
             type="button"
@@ -1070,9 +1043,7 @@ function App() {
             {!hasPreviewed && !previewLoading && !mermaidCode && (
               <div className="empty-state compact">
                 <div className="flow-glyph" aria-hidden="true"><span /><span /><span /></div>
-                <span className="empty-step">Preview first</span>
                 <h2>The map follows the motion.</h2>
-                <p>Launch the preview before generating the code structure.</p>
               </div>
             )}
 
@@ -1080,13 +1051,11 @@ function App() {
               <div className="empty-state compact">
                 <span className="thinking-orbit" aria-hidden="true"><i /></span>
                 <h2>Preview is still loading.</h2>
-                <p>The flowchart unlocks after the first frame is ready.</p>
               </div>
             )}
 
             {hasPreviewed && !aiAccess && !mermaidCode && (
               <div className="api-gate">
-                <span className="empty-step">AI access required</span>
                 <h2>Connect before mapping.</h2>
                 <button className="button button-soft" type="button" onClick={() => setIsConnectOpen(true)}>
                   Connect AI
@@ -1098,7 +1067,6 @@ function App() {
               <div className="empty-state compact">
                 <span className="preview-symbol" aria-hidden="true">✦</span>
                 <h2>{hasInstantFlowchart ? 'Instant map ready.' : 'Ready to understand the system.'}</h2>
-                <p>{hasInstantFlowchart ? 'This archived example includes a prebuilt, non-linear flowchart.' : 'AI will trace dependencies, loops, branches, and parallel systems.'}</p>
               </div>
             )}
 
@@ -1106,7 +1074,6 @@ function App() {
               <div className="thinking-state" aria-live="polite">
                 <span className="thinking-orbit" aria-hidden="true"><i /></span>
                 <strong>Understanding your code</strong>
-                <p>Mapping dependencies, decisions, and relationships.</p>
               </div>
             )}
 
@@ -1150,21 +1117,9 @@ function App() {
                     />
                   </div>
                 </div>
-                <div className="diagram-help">Drag to pan · Scroll to zoom · Select a node to reveal its code</div>
               </>
             )}
           </div>
-
-          <footer className={'ai-status ' + currentStatus.tone} aria-live="polite">
-            <span className="ai-indicator" aria-hidden="true"><i /></span>
-            <div>
-              <strong>{currentStatus.label}</strong>
-              <span>{errorMessage || currentStatus.detail}</span>
-            </div>
-            {generationState === 'error' && source.javascript.trim() && (
-              <button className="button button-tertiary" type="button" onClick={handleSubmit}>Try again</button>
-            )}
-          </footer>
           <button
             className="card-resize-handle"
             type="button"
@@ -1269,7 +1224,6 @@ function App() {
               ) : (
                 <div className="empty-state compact">
                   <span className="preview-symbol" aria-hidden="true">↗</span>
-                  <span className="empty-step">Step 1 · Preview first</span>
                   <h2>Check what your code makes.</h2>
                   <p>Run the current HTML, CSS, and JavaScript in an isolated canvas before asking AI to map it.</p>
                   <button

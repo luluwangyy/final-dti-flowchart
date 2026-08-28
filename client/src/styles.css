@@ -2054,6 +2054,13 @@ button:focus-visible,
   -webkit-backdrop-filter: blur(14px);
 }
 
+/* Keep the three workspace headings on one visual level. */
+.editor-heading .card-title,
+.card-toolbar .card-title {
+  font-size: 18px;
+  line-height: 1.1;
+}
+
 @keyframes motion-spin {
   to { transform: rotate(360deg); }
 }
