@@ -1129,6 +1129,10 @@ button:focus-visible,
   gap: 7px;
 }
 
+.connection-switcher + .credential-field {
+  margin-top: 18px;
+}
+
 .credential-field > span {
   color: var(--ink-soft);
   font-size: 10px;

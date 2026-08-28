@@ -1300,9 +1300,7 @@ function App() {
           >
             <header className="connect-modal-header">
               <div>
-                <span className="eyebrow">AI access</span>
                 <h2 id="connect-title">Connect AI</h2>
-                <p>Choose how you want to unlock flowchart generation.</p>
               </div>
               <button
                 className="modal-close"
@@ -1322,11 +1320,6 @@ function App() {
                 <span className="connected-mark" aria-hidden="true">✓</span>
                 <div>
                   <strong>AI is connected</strong>
-                  <p>
-                    {aiAccess.mode === 'demo'
-                      ? 'Using limited demo access for this session.'
-                      : 'Using your personal key for this browser session only.'}
-                  </p>
                 </div>
                 <button
                   className="button button-soft"
@@ -1369,22 +1362,11 @@ function App() {
                   </button>
                 </div>
 
-                <div className="connection-copy">
-                  <strong>
-                    {connectionMode === 'demo' ? 'Use trial credits' : 'Use your own OpenAI access'}
-                  </strong>
-                  <p>
-                    {connectionMode === 'demo'
-                      ? 'Enter the password shared by the creator. Trial access uses the app key securely on the server.'
-                      : 'Your key is sent to the Flow server for requests in this session and is never saved to browser storage.'}
-                  </p>
-                </div>
-
                 <label className="credential-field" htmlFor="ai-credential">
-                  <span>{connectionMode === 'demo' ? 'Demo password' : 'OpenAI API key'}</span>
                   <input
                     id="ai-credential"
                     type="password"
+                    aria-label={connectionMode === 'demo' ? 'Demo password' : 'OpenAI API key'}
                     autoComplete="off"
                     value={credentialInput}
                     placeholder={connectionMode === 'demo' ? 'Enter demo password' : 'sk-…'}
@@ -1401,13 +1383,6 @@ function App() {
                 {connectionMessage && (
                   <p className="connection-error" role="alert">{connectionMessage}</p>
                 )}
-
-                <div className="connection-note">
-                  <span aria-hidden="true">⌁</span>
-                  <p>
-                    The creator key is never included in the website. Personal keys are held in memory only and clear when the page reloads.
-                  </p>
-                </div>
 
                 <button
                   className="button button-primary connect-submit"
