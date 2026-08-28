@@ -1,140 +1,119 @@
-# JavaScript to Mermaid Flowchart Generator
+# Flow
 
-## Overview
-This app is designed to convert JavaScript, HTML, and CSS code into interactive flowcharts using Mermaid.js.It is  useful for developers and educators aiming to visually debug or understand their code.
+Flow helps people understand creative JavaScript by placing the source code, live output, and a clickable structural flowchart in one workspace.
 
-## Project Structure
+[Open the live demo](https://luluwangyy.github.io/final-dti-flowchart/)
 
-### Components
-1. **Client-side (React Application)**  
-   - Manages user interaction and displays the generated flowchart.  
-   - Utilizes **CodeMirror** for a code-editing interface and **Mermaid.js** for rendering flowcharts.
+## What you can do
 
-2. **Server-side (Express Application)**  
-   - Processes the code using OpenAI's GPT-4 API to generate Mermaid.js syntax.  
-   - Provides API endpoints for flowchart generation and language model interactions.
+- Load one of four complete creative-coding studies.
+- Preview the animation directly in the browser.
+- Generate an immediate prebuilt flowchart for every included example.
+- Paste your own JavaScript, HTML, and CSS.
+- Use demo access or a personal OpenAI API key to map custom code.
+- Select a flowchart node to reveal and highlight its source lines.
+- Pan and zoom the diagram or resize each workspace card.
 
-### Directory Layout
+## Try the built-in examples
+
+1. Choose a study from the Creative code library.
+2. Select **Load & preview**. The preview starts automatically.
+3. Select **Generate flowchart**. Included examples use their prebuilt diagrams and do not require AI access.
+4. Select any diagram node to jump to the corresponding JavaScript.
+
+## Use your own code
+
+1. Paste or edit code in the JavaScript, HTML, and CSS tabs.
+2. Select **Launch preview** and confirm that the result runs correctly.
+3. Select **Generate flowchart**.
+4. Connect with the demo password or a personal OpenAI API key when prompted.
+5. After a successful connection, generation resumes automatically.
+
+## Run locally
+
+### Requirements
+
+- Node.js 20 or newer
+- npm
+- An OpenAI API key if you want to generate diagrams for custom code
+
+### Install the server
+
+```bash
+cd server
+npm install
 ```
-js-to-mermaid-app/
-├── client/ # Frontend React application
-│ ├── src/
-│ │ ├── App.js # Main application logic
-│ │ ├── styles.css # Application styling
-│ │ └── index.js # React entry point
-│ ├── public/
-│ │ ├── index.html # Main HTML file
-│ │ └── vendor/ # jQuery plugins for visualization
-│ └── package.json # Frontend dependencies
-└── server/ # Backend Express server
-├── index.js # Server logic and API endpoints
-├── .env # Environment variables
-└── package.json # Backend dependencies
+
+Create `server/.env`:
+
+```dotenv
+OPENAI_API_KEY=your_openai_api_key
+DEMO_PASSWORD=choose_a_demo_password
+CLIENT_ORIGIN=http://localhost:3000
+HOST=127.0.0.1
+PORT=5050
+DEMO_TRIAL_LIMIT=5
 ```
 
-## Setup Instructions
-### Prerequisites
-- Node.js (v14 or higher)
-- npm or yarn
-- OpenAI API key
+Start the API:
 
-### Installation
+```bash
+node index.js
+```
 
-#### Backend Setup
-1. Navigate to the server directory:
-   ```
-   cd server
-   ```
-2. Install dependencies:
-   ```
-   npm install
-   ```
-3. Create a `.env` file in the server folder and add your OpenAI API key:
-   ```
-   OPENAI_API_KEY=your_api_key_here
-   ```
-4. Start the server:
-   ```
-   node index.js
-   ```
+### Install the client
 
-#### Frontend Setup
-1. Navigate to the client directory:
-   ```
-   cd client
-   ```
-2. Install dependencies:
-   ```
-   npm install
-   ```
-3. Start the React application:
-   ```
-   npm start
-   ```
+In a second terminal:
 
+```bash
+cd client
+npm install
+npm start
+```
 
-##Code Walkthrough
-### Frontend Core (App.js)
-- **State Management**: Manages the state for code inputs and generated Mermaid syntax.
-  ```javascript
-  const [code, setCode] = useState('');
-  const [htmlCode, setHtmlCode] = useState('');
-  const [cssCode, setCssCode] = useState('');
-  const [mermaidCode, setMermaidCode] = useState('');
-  ```
+Open [http://localhost:3000](http://localhost:3000).
 
-- **Editor Setup**: Configures CodeMirror editors for JavaScript, HTML, and CSS.
-  ```javascript
-  <CodeMirror
-    value={code}
-    options={{
-      mode: 'javascript',
-      theme: 'material-darker',
-      lineNumbers: true
-    }}
-    onChange={(editor, data, value) => setCode(value)}
-    ref={jsEditorRef}
-  />
-  ```
+## Configuration
 
-- **Flowchart Rendering**: Uses Mermaid.js to render the flowchart from the generated syntax.
-  ```javascript
-  useEffect(() => {
-    if (mermaidCode) {
-      mermaid.initialize({ startOnLoad: true });
-      try {
-        mermaid.contentLoaded();
-      } catch (error) {
-        console.error("Error rendering Mermaid diagram:", error);
-      }
-    }
-  }, [mermaidCode]);
-  ```
+| Variable | Location | Purpose |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | Server | OpenAI credential used for demo requests |
+| `DEMO_PASSWORD` | Server | Password that unlocks limited demo requests |
+| `DEMO_TRIAL_LIMIT` | Server | Daily demo-request allowance per client address |
+| `CLIENT_ORIGIN` | Server | Comma-separated origins allowed by CORS |
+| `HOST` | Server | Address used by the Express server |
+| `PORT` | Server | API port; defaults to `5050` |
+| `REACT_APP_API_URL` | Client build | Public URL of the deployed Flow API |
 
-### Backend Core (index.js)
-- **Flowchart Generation Endpoint**: Processes code and generates Mermaid syntax.
-  ```javascript
-  app.post('/generate-flowchart', async (req, res) => {
-    const { code, htmlCode, cssCode } = req.body;
-    // Process code through OpenAI
-    // Return Mermaid syntax
-  });
-  ```
+## Deployment
 
-- **Code Merging Function**: Merges updated code sections with the original code.
-  ```javascript
-  function mergePartialUpdate(original, update) {
-    if (!update || update === original) return original;
-    // Merge logic for code updates
-  }
-  ```
-- **React**: v18.3.1
-- **Express**: v4.21.0
-- **OpenAI API**: v4.73.0
-- **Mermaid**: v11.2.1
-- 
+The GitHub Pages workflow publishes the React client from the `codex/live-demo-release` branch. The included examples are fully functional in this static deployment.
 
-NOTES:
+Custom AI generation requires the Express server to be deployed separately over HTTPS. Add its public URL as a GitHub Actions repository variable named `REACT_APP_API_URL`, set `CLIENT_ORIGIN` on the server to `https://luluwangyy.github.io`, and redeploy the Pages workflow.
 
-you cannot click the generate flowchart twice before the flowchart is generated. Otherwise, there will be syntax error in mermaid.
+Never place `OPENAI_API_KEY` or `DEMO_PASSWORD` in the client, this repository, or a GitHub Actions variable exposed to the browser. Store both as secrets on the backend host.
 
+## Project structure
+
+```text
+final-dti-flowchart/
+├── client/             React interface, CodeMirror editor, previews, and Mermaid rendering
+├── server/             Express API and OpenAI integration
+├── .github/workflows/  GitHub Pages deployment
+└── README.md
+```
+
+## Technology
+
+- React 18
+- CodeMirror 5
+- Mermaid 11
+- Express 4
+- OpenAI Node SDK
+
+## Security notes
+
+- Built-in sample diagrams are generated locally and do not transmit code.
+- Personal API keys are kept in browser memory for the current page session and are sent only to the configured Flow API.
+- Demo credentials and the creator's OpenAI key remain on the server.
+- `server/.env` and build artifacts are excluded from Git.
