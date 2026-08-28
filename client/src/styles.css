@@ -261,9 +261,10 @@ button:focus-visible,
 
 .editor-heading {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
+  flex-direction: column;
   justify-content: space-between;
-  gap: 24px;
+  gap: 16px;
   padding: 28px 28px 22px;
 }
 
@@ -294,7 +295,8 @@ button:focus-visible,
 }
 
 .example-library {
-  flex: 0 0 min(360px, 46%);
+  width: 100%;
+  flex: 0 0 auto;
   padding: 13px 14px 12px;
   border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 16px;
