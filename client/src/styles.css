@@ -2073,6 +2073,17 @@ button:focus-visible,
     gap: 10px;
   }
 
+  .editor-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .example-library {
+    width: 100%;
+    flex-basis: auto;
+  }
+
   .editor-panel,
   .preview-panel,
   .flowchart-panel {
