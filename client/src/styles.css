@@ -1427,10 +1427,7 @@ button:focus-visible,
 }
 
 body {
-  background:
-    radial-gradient(circle at 10% 4%, rgba(220, 228, 219, 0.78), transparent 31%),
-    radial-gradient(circle at 92% 96%, rgba(237, 225, 211, 0.72), transparent 34%),
-    linear-gradient(145deg, #f7f7f3 0%, #eeeeea 100%);
+  background: #e7ede7;
 }
 
 button:focus-visible,
@@ -1446,11 +1443,11 @@ button:focus-visible,
 }
 
 .app-shell::before {
-  background: #d8e1d8;
+  display: none;
 }
 
 .app-shell::after {
-  background: #eadccf;
+  display: none;
 }
 
 .workspace {
