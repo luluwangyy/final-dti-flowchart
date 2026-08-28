@@ -388,6 +388,7 @@ function App() {
   const cardResizeRef = useRef(null);
   const renderId = useRef(0);
   const highlightedLinesRef = useRef([]);
+  const pendingGenerationRef = useRef(false);
   const activeMeta = FILES.find((file) => file.id === activeFile);
   const activeValue = source[activeFile];
   const hasSource = Object.values(source).some((value) => value.trim());
@@ -491,6 +492,7 @@ function App() {
 
     const closeOnEscape = (event) => {
       if (event.key === 'Escape') {
+        pendingGenerationRef.current = false;
         setIsConnectOpen(false);
         setIsInfoOpen(false);
       }
@@ -506,9 +508,12 @@ function App() {
     async function renderDiagram() {
       if (!mermaidCode || !diagramRef.current) return;
 
+      const id = 'flow-diagram-' + renderId.current;
+      renderId.current += 1;
+
       try {
-        const id = 'flow-diagram-' + renderId.current;
-        renderId.current += 1;
+        const isValid = await mermaid.parse(mermaidCode, { suppressErrors: true });
+        if (!isValid) throw new Error('Invalid Mermaid syntax');
         const { svg } = await mermaid.render(id, mermaidCode);
         if (!cancelled && diagramRef.current) {
           diagramRef.current.innerHTML = svg;
@@ -527,6 +532,8 @@ function App() {
         }
       } catch (error) {
         if (!cancelled) {
+          document.getElementById(id)?.remove();
+          document.getElementById(`d${id}`)?.remove();
           const fallback = buildFallbackMermaid(source.javascript);
           if (mermaidCode !== fallback) {
             setMermaidCode(fallback);
@@ -638,7 +645,49 @@ function App() {
     setErrorMessage('');
   }
 
-  const handleSubmit = async () => {
+  async function generateFlowchart(access) {
+    setGenerationState('generating');
+    setErrorMessage('');
+
+    if (hasInstantFlowchart) {
+      setMermaidCode(cleanMermaidSyntax(example.flowchart));
+      setGenerationState('completed');
+      return;
+    }
+
+    try {
+      const headers = access.mode === 'personal'
+        ? { 'X-OpenAI-Api-Key': access.secret }
+        : { 'X-Demo-Password': access.secret };
+      const response = await axios.post(
+        API_URL + '/generate-flowchart',
+        {
+          code: source.javascript,
+          htmlCode: source.html || '<!-- No HTML provided -->',
+          cssCode: source.css || '/* No CSS provided */',
+          longestSection: 'JavaScript'
+        },
+        { headers }
+      );
+
+      const diagram = cleanMermaidSyntax(response.data.mermaid);
+      if (!diagram) throw new Error('The service returned an empty diagram.');
+
+      const isValid = await mermaid.parse(diagram, { suppressErrors: true });
+      setMermaidCode(isValid ? diagram : buildFallbackMermaid(source.javascript));
+      setGenerationState('completed');
+    } catch (error) {
+      const responseMessage =
+        error.response && error.response.data && error.response.data.error;
+      setGenerationState('error');
+      setErrorMessage(
+        responseMessage ||
+        'Flow could not reach the AI service. Check the server connection and try again.'
+      );
+    }
+  }
+
+  function handleSubmit() {
     if (!source.javascript.trim()) {
       setActiveFile('javascript');
       setGenerationState('error');
@@ -654,52 +703,23 @@ function App() {
       return;
     }
 
+    if (hasInstantFlowchart) {
+      pendingGenerationRef.current = false;
+      generateFlowchart(aiAccess);
+      return;
+    }
+
     if (!aiAccess) {
+      pendingGenerationRef.current = true;
       setIsConnectOpen(true);
       return;
     }
 
-    setGenerationState('generating');
-    setErrorMessage('');
+    pendingGenerationRef.current = false;
+    generateFlowchart(aiAccess);
+  }
 
-    if (hasInstantFlowchart) {
-      setMermaidCode(cleanMermaidSyntax(example.flowchart));
-      setGenerationState('completed');
-      return;
-    }
-
-    try {
-      const headers = aiAccess.mode === 'personal'
-        ? { 'X-OpenAI-Api-Key': aiAccess.secret }
-        : { 'X-Demo-Password': aiAccess.secret };
-      const response = await axios.post(
-        API_URL + '/generate-flowchart',
-        {
-          code: source.javascript,
-          htmlCode: source.html || '<!-- No HTML provided -->',
-          cssCode: source.css || '/* No CSS provided */',
-          longestSection: 'JavaScript'
-        },
-        { headers }
-      );
-
-      const diagram = cleanMermaidSyntax(response.data.mermaid);
-      if (!diagram) throw new Error('The service returned an empty diagram.');
-
-      setMermaidCode(diagram);
-      setGenerationState('completed');
-    } catch (error) {
-      const responseMessage =
-        error.response && error.response.data && error.response.data.error;
-      setGenerationState('error');
-      setErrorMessage(
-        responseMessage ||
-        'Flow could not reach the AI service. Check the server connection and try again.'
-      );
-    }
-  };
-
-  const handleConnect = async (event) => {
+  async function handleConnect(event) {
     event.preventDefault();
     const secret = credentialInput.trim();
 
@@ -722,11 +742,15 @@ function App() {
 
     try {
       await axios.post(API_URL + '/session/connect', {}, { headers });
-      setAiAccess({ mode: connectionMode, secret });
+      const nextAccess = { mode: connectionMode, secret };
+      const shouldGenerate = pendingGenerationRef.current;
+      pendingGenerationRef.current = false;
+      setAiAccess(nextAccess);
       setConnectionState('connected');
       setConnectionMessage('');
       setCredentialInput('');
       setIsConnectOpen(false);
+      if (shouldGenerate) await generateFlowchart(nextAccess);
     } catch (error) {
       const responseMessage =
         error.response && error.response.data && error.response.data.error;
@@ -735,7 +759,7 @@ function App() {
         responseMessage || 'Flow could not reach the AI service. The server may still be offline.'
       );
     }
-  };
+  }
 
   const disconnectAI = () => {
     setAiAccess(null);
@@ -875,7 +899,10 @@ function App() {
           <button
             className={'connect-button' + (aiAccess ? ' is-connected' : '')}
             type="button"
-            onClick={() => setIsConnectOpen(true)}
+            onClick={() => {
+              pendingGenerationRef.current = false;
+              setIsConnectOpen(true);
+            }}
           >
             <i aria-hidden="true" />
             {aiAccess ? 'AI connected' : 'Connect AI'}
@@ -889,6 +916,7 @@ function App() {
             aria-label="About Flow"
             title="What is Flow?"
             onClick={() => {
+              pendingGenerationRef.current = false;
               setIsConnectOpen(false);
               setIsInfoOpen(true);
             }}
@@ -1054,16 +1082,23 @@ function App() {
               </div>
             )}
 
-            {hasPreviewed && !aiAccess && !mermaidCode && (
+            {hasPreviewed && !aiAccess && !hasInstantFlowchart && !mermaidCode && (
               <div className="api-gate">
                 <h2>Connect before mapping.</h2>
-                <button className="button button-soft" type="button" onClick={() => setIsConnectOpen(true)}>
+                <button
+                  className="button button-soft"
+                  type="button"
+                  onClick={() => {
+                    pendingGenerationRef.current = false;
+                    setIsConnectOpen(true);
+                  }}
+                >
                   Connect AI
                 </button>
               </div>
             )}
 
-            {hasPreviewed && aiAccess && !mermaidCode && generationState !== 'generating' && (
+            {hasPreviewed && (aiAccess || hasInstantFlowchart) && !mermaidCode && generationState !== 'generating' && (
               <div className="empty-state compact">
                 <span className="preview-symbol" aria-hidden="true">✦</span>
                 <h2>{hasInstantFlowchart ? 'Instant map ready.' : 'Ready to understand the system.'}</h2>
@@ -1273,7 +1308,10 @@ function App() {
                 className="modal-close"
                 type="button"
                 aria-label="Close AI connection"
-                onClick={() => setIsConnectOpen(false)}
+                onClick={() => {
+                  pendingGenerationRef.current = false;
+                  setIsConnectOpen(false);
+                }}
               >
                 ×
               </button>
@@ -1295,6 +1333,7 @@ function App() {
                   type="button"
                   onClick={() => {
                     disconnectAI();
+                    pendingGenerationRef.current = false;
                     setIsConnectOpen(false);
                   }}
                 >
