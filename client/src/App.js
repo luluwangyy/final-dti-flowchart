@@ -354,6 +354,22 @@ function buildFallbackMermaid(code = '') {
   return ['flowchart TD', '  Root["Code structure"]', ...nodeLines, ...entryEdges, ...edges].join('\n');
 }
 
+function getDefaultCardHeights() {
+  if (window.innerWidth <= 820) {
+    return { editor: 680, preview: 300, flowchart: 520 };
+  }
+
+  const columnGap = window.innerWidth <= 1120 ? 10 : 12;
+  const workspaceHeight = Math.max(672, Math.min(window.innerHeight - 100, 820));
+  const previewHeight = Math.max(240, Math.min(300, Math.round(workspaceHeight * 0.35)));
+
+  return {
+    editor: workspaceHeight,
+    preview: previewHeight,
+    flowchart: workspaceHeight - previewHeight - columnGap
+  };
+}
+
 function App() {
   const [source, setSource] = useState(EMPTY_SOURCE);
   const [activeFile, setActiveFile] = useState('javascript');
@@ -375,17 +391,14 @@ function App() {
   const [pendingLineRange, setPendingLineRange] = useState(null);
   const [diagramTransform, setDiagramTransform] = useState({ x: 0, y: 0, scale: DEFAULT_DIAGRAM_SCALE });
   const [isDiagramDragging, setIsDiagramDragging] = useState(false);
-  const [cardHeights, setCardHeights] = useState(() => (
-    window.innerWidth <= 1120
-      ? { editor: 1030, preview: 340, flowchart: 680 }
-      : { editor: 1120, preview: 400, flowchart: 708 }
-  ));
+  const [cardHeights, setCardHeights] = useState(getDefaultCardHeights);
 
   const editorRef = useRef(null);
   const diagramRef = useRef(null);
   const diagramViewportRef = useRef(null);
   const diagramDragRef = useRef({ active: false, moved: false, x: 0, y: 0 });
   const cardResizeRef = useRef(null);
+  const cardsManuallyResizedRef = useRef(false);
   const renderId = useRef(0);
   const highlightedLinesRef = useRef([]);
   const pendingGenerationRef = useRef(false);
@@ -559,6 +572,24 @@ function App() {
 
   useEffect(() => () => {
     if (cardResizeRef.current) cardResizeRef.current.finishResize();
+  }, []);
+
+  useEffect(() => {
+    let resizeFrame;
+
+    const updateDefaultHeights = () => {
+      if (cardsManuallyResizedRef.current) return;
+      window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = window.requestAnimationFrame(() => {
+        setCardHeights(getDefaultCardHeights());
+      });
+    };
+
+    window.addEventListener('resize', updateDefaultHeights);
+    return () => {
+      window.removeEventListener('resize', updateDefaultHeights);
+      window.cancelAnimationFrame(resizeFrame);
+    };
   }, []);
 
   useEffect(() => {
@@ -853,6 +884,7 @@ function App() {
 
   const beginCardResize = (event, card, minHeight) => {
     event.preventDefault();
+    cardsManuallyResizedRef.current = true;
     const startHeight = cardHeights[card];
     const startY = event.pageY;
 
@@ -876,6 +908,7 @@ function App() {
   const resizeCardWithKeyboard = (event, card, minHeight) => {
     if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
     event.preventDefault();
+    cardsManuallyResizedRef.current = true;
     const change = event.key === 'ArrowUp' ? -32 : 32;
     setCardHeights((current) => ({
       ...current,
