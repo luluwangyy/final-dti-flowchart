@@ -1043,8 +1043,15 @@ function App() {
             <button
               className="button button-preview"
               type="button"
-              onClick={() => handlePreview()}
-              disabled={!hasSource || previewLoading}
+              onClick={() => {
+                if (hasSource) {
+                  handlePreview();
+                  return;
+                }
+
+                loadExample(selectedExample);
+              }}
+              disabled={previewLoading}
             >
               <strong aria-hidden="true">▶</strong>
               {previewLoading ? 'Loading preview…' : previewDocument ? 'Reload preview' : 'Launch preview'}
